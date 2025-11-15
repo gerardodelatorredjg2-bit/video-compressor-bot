@@ -1,9 +1,9 @@
 import os
 import asyncio
 from pyrogram import Client, filters
-from pyrogram.types import Message
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from config import BOT_TOKEN, API_ID, API_HASH, DOWNLOAD_DIR
-from compressor import compressor
+from compressor import compressor, QUALITY_PRESETS
 from queue_manager import queue_manager
 from utils import format_bytes, cleanup_file, generate_filename, create_progress_bar, sanitize_filename
 
@@ -14,7 +14,6 @@ app = Client(
     bot_token=BOT_TOKEN
 )
 
-user_messages = {}
 
 @app.on_message(filters.command("start"))
 async def start_command(client, message: Message):
@@ -22,15 +21,17 @@ async def start_command(client, message: Message):
         "🎥 **Bienvenido al Compresor de Video**\n\n"
         "Envíame un video y lo comprimiré para reducir su tamaño.\n\n"
         "**Características:**\n"
-        "✅ Compresión de alta calidad\n"
+        "✅ Compresión ultra agresiva (360p por defecto)\n"
+        "✅ Múltiples opciones de calidad\n"
         "✅ Soporte para archivos grandes (+50 MB)\n"
-        "✅ Barra de progreso en tiempo real\n"
+        "✅ Barra de progreso mejorada\n"
         "✅ Sistema de cola inteligente\n"
         "✅ Cancelación de operaciones\n\n"
         "**Comandos:**\n"
         "/start - Mostrar este mensaje\n"
         "/help - Ayuda detallada\n"
-        "/cancel - Cancelar compresión actual\n\n"
+        "/cancel - Cancelar compresión actual\n"
+        "/quality - Cambiar calidad de compresión\n\n"
         "¡Envía un video para comenzar!"
     )
     await message.reply_text(welcome_text)
@@ -41,18 +42,56 @@ async def help_command(client, message: Message):
         "📚 **Ayuda del Bot Compresor**\n\n"
         "**Cómo usar:**\n"
         "1. Envía un archivo de video\n"
-        "2. Espera mientras se comprime\n"
-        "3. Recibe tu video comprimido\n\n"
+        "2. Selecciona la calidad (o usa 360p por defecto)\n"
+        "3. Espera mientras se comprime\n"
+        "4. Recibe tu video comprimido\n\n"
         "**Formatos soportados:**\n"
         "MP4, AVI, MOV, MKV, FLV, WMV\n\n"
+        "**Calidades disponibles:**\n"
+        "• 240p - Máxima compresión (~80-90% reducción)\n"
+        "• 360p - Alta compresión (~60-80% reducción) ⭐\n"
+        "• 480p - Compresión media (~40-60% reducción)\n"
+        "• 720p - Buena calidad (~20-40% reducción)\n"
+        "• Original - Solo cambia codec\n\n"
         "**Características avanzadas:**\n"
-        "• Si envías múltiples videos, se procesarán en cola\n"
-        "• Puedes cancelar con /cancel en cualquier momento\n"
-        "• La barra de progreso se actualiza en tiempo real\n"
-        "• Recibirás un reporte de reducción de tamaño\n\n"
-        "**Nota:** El bot usa compresión H.264 optimizada para mantener la mejor calidad posible."
+        "• Cola para múltiples videos\n"
+        "• /cancel para cancelar\n"
+        "• /quality para cambiar calidad predeterminada\n"
+        "• Barra de progreso en tiempo real\n"
+        "• Reporte de reducción de tamaño"
     )
     await message.reply_text(help_text)
+
+@app.on_message(filters.command("quality"))
+async def quality_command(client, message: Message):
+    user_id = message.from_user.id
+    current_quality = compressor.get_user_quality(user_id)
+    
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("240p 🔥", callback_data="quality_240p"),
+            InlineKeyboardButton("360p ⭐", callback_data="quality_360p")
+        ],
+        [
+            InlineKeyboardButton("480p 📺", callback_data="quality_480p"),
+            InlineKeyboardButton("720p 🎬", callback_data="quality_720p")
+        ],
+        [
+            InlineKeyboardButton("Original 📹", callback_data="quality_original")
+        ]
+    ])
+    
+    await message.reply_text(
+        f"🎛️ **Configuración de Calidad**\n\n"
+        f"Calidad actual: **{QUALITY_PRESETS[current_quality]['name']}**\n\n"
+        f"Selecciona la calidad predeterminada para tus videos:\n\n"
+        f"• 240p - Máxima compresión (archivos muy pequeños)\n"
+        f"• 360p - Alta compresión (recomendado) ⭐\n"
+        f"• 480p - Compresión media\n"
+        f"• 720p - Buena calidad\n"
+        f"• Original - Solo cambia el codec",
+        reply_markup=keyboard
+    )
 
 @app.on_message(filters.command("cancel"))
 async def cancel_command(client, message: Message):
@@ -69,6 +108,21 @@ async def cancel_command(client, message: Message):
             await message.reply_text("❌ **Cola limpiada**\n\nSe han eliminado todos los videos pendientes.")
         else:
             await message.reply_text("ℹ️ No hay ninguna operación en curso para cancelar.")
+
+@app.on_callback_query(filters.regex("^quality_"))
+async def quality_callback(client, callback_query: CallbackQuery):
+    user_id = callback_query.from_user.id
+    quality = callback_query.data.split("_")[1]
+    
+    compressor.set_user_quality(user_id, quality)
+    
+    await callback_query.answer(f"✅ Calidad cambiada a {QUALITY_PRESETS[quality]['name']}")
+    await callback_query.message.edit_text(
+        f"✅ **Calidad actualizada**\n\n"
+        f"Nueva calidad predeterminada: **{QUALITY_PRESETS[quality]['name']}**\n\n"
+        f"Todos tus próximos videos se comprimirán con esta calidad.\n"
+        f"Usa /quality para cambiarla nuevamente."
+    )
 
 @app.on_message(filters.video | filters.document)
 async def handle_video(client, message: Message):
@@ -91,16 +145,28 @@ async def handle_video(client, message: Message):
         )
         return
     
+    quality = compressor.get_user_quality(user_id)
+    
     queue_position = queue_manager.get_queue_position(user_id)
     
     if queue_position > 0:
         await message.reply_text(
             f"📥 **Video agregado a la cola**\n\n"
+            f"Calidad: **{QUALITY_PRESETS[quality]['name']}**\n"
             f"Posición en cola: **{queue_position + 1}**\n"
-            f"Tu video será procesado pronto."
+            f"Tu video será procesado pronto.\n\n"
+            f"Usa /quality para cambiar la calidad predeterminada."
+        )
+    else:
+        await message.reply_text(
+            f"🎥 **Video recibido**\n\n"
+            f"Tamaño: **{format_bytes(video.file_size)}**\n"
+            f"Calidad: **{QUALITY_PRESETS[quality]['name']}**\n\n"
+            f"⚙️ Iniciando compresión...\n"
+            f"Usa /quality para cambiar la calidad predeterminada."
         )
     
-    await queue_manager.add_to_queue(user_id, message)
+    await queue_manager.add_to_queue(user_id, (message, quality))
     
     if not queue_manager.is_processing(user_id):
         queue_manager.mark_processing(user_id, True)
@@ -109,22 +175,24 @@ async def handle_video(client, message: Message):
 async def process_queue(client, user_id):
     try:
         while True:
-            task_message = await queue_manager.get_next_task(user_id)
+            task_data = await queue_manager.get_next_task(user_id)
             
-            if task_message is None:
+            if task_data is None:
                 break
             
-            await process_video(client, task_message)
+            message, quality = task_data
+            await process_video(client, message, quality)
     finally:
         queue_manager.mark_processing(user_id, False)
 
-async def process_video(client, message: Message):
+async def process_video(client, message: Message, quality='360p'):
     user_id = message.from_user.id
     video = message.video or message.document
     
     status_msg = await message.reply_text(
-        "📥 **Descargando video...**\n\n"
-        "Esto puede tomar unos momentos dependiendo del tamaño del archivo."
+        f"📥 **Descargando video...**\n\n"
+        f"Calidad seleccionada: **{QUALITY_PRESETS[quality]['name']}**\n"
+        f"Esto puede tomar unos momentos dependiendo del tamaño del archivo."
     )
     
     input_path = None
@@ -134,15 +202,22 @@ async def process_video(client, message: Message):
         safe_filename = sanitize_filename(video.file_name)
         input_path = os.path.join(DOWNLOAD_DIR, f"{user_id}_{video.file_unique_id}_{safe_filename}")
         
+        last_download_update = [0]
+        status_msg_ref = [status_msg]
+        
         async def download_progress(current, total):
-            if current % (total // 10 + 1) < 50000 or current == total:
-                percentage = (current / total) * 100
+            percentage = (current / total)
+            if percentage - last_download_update[0] >= 0.05 or current == total:
                 bar = await create_progress_bar(current, total, "📥", "")
-                await status_msg.edit_text(
-                    f"📥 **Descargando video...**\n\n"
-                    f"{bar}\n"
-                    f"{format_bytes(current)} / {format_bytes(total)}"
-                )
+                try:
+                    await status_msg_ref[0].edit_text(
+                        f"📥 **Descargando video...**\n\n"
+                        f"{bar}\n"
+                        f"{format_bytes(current)} / {format_bytes(total)}"
+                    )
+                    last_download_update[0] = percentage
+                except:
+                    pass
         
         await message.download(
             file_name=input_path,
@@ -150,46 +225,45 @@ async def process_video(client, message: Message):
         )
         
         if compressor.should_cancel(user_id):
-            await status_msg.edit_text("❌ **Descarga cancelada por el usuario.**")
+            await status_msg_ref[0].edit_text("❌ **Descarga cancelada por el usuario.**")
             await cleanup_file(input_path)
             compressor.clear_cancel_flag(user_id)
             return
         
-        user_messages[user_id] = status_msg
-        
-        await status_msg.edit_text(
-            "⚙️ **Comprimiendo video...**\n\n"
-            "Procesando con FFmpeg. Esto puede tomar varios minutos."
+        await status_msg_ref[0].edit_text(
+            f"⚙️ **Comprimiendo video...**\n\n"
+            f"Calidad: **{QUALITY_PRESETS[quality]['name']}**\n"
+            f"Procesando con FFmpeg. Esto puede tomar varios minutos."
         )
         
         safe_output_name = generate_filename(video.file_name, "_compressed")
         output_path = os.path.join(DOWNLOAD_DIR, safe_output_name)
         
         async def compression_progress(progress):
-            if user_id in user_messages:
-                try:
-                    bar = await create_progress_bar(progress, 1.0, "⚙️", "")
-                    await user_messages[user_id].edit_text(
-                        f"⚙️ **Comprimiendo video...**\n\n"
-                        f"{bar}\n"
-                        f"Progreso: {progress * 100:.1f}%"
-                    )
-                except Exception as e:
-                    print(f"Progress update error: {e}")
+            try:
+                bar = await create_progress_bar(int(progress * 100), 100, "⚙️", "")
+                await status_msg_ref[0].edit_text(
+                    f"⚙️ **Comprimiendo video...**\n\n"
+                    f"{bar}\n"
+                    f"Progreso: {progress * 100:.1f}%"
+                )
+            except Exception as e:
+                print(f"Progress update error: {e}")
         
         result = await compressor.compress_video(
             input_path,
             output_path,
             user_id,
+            quality,
             compression_progress
         )
         
         if result is None:
             if compressor.should_cancel(user_id):
-                await status_msg.edit_text("❌ **Compresión cancelada por el usuario.**")
+                await status_msg_ref[0].edit_text("❌ **Compresión cancelada por el usuario.**")
                 compressor.clear_cancel_flag(user_id)
             else:
-                await status_msg.edit_text(
+                await status_msg_ref[0].edit_text(
                     "❌ **Error en la compresión**\n\n"
                     "Hubo un problema al comprimir tu video. "
                     "Por favor, intenta con otro archivo."
@@ -199,53 +273,69 @@ async def process_video(client, message: Message):
                 await cleanup_file(output_path)
             return
         
-        await status_msg.edit_text(
+        await status_msg_ref[0].edit_text(
             "📤 **Subiendo video comprimido...**\n\n"
             "Esto puede tomar unos momentos."
         )
         
+        last_upload_update = [0]
+        
         async def upload_progress(current, total):
-            if current % (total // 10 + 1) < 50000 or current == total:
-                percentage = (current / total) * 100
+            percentage = (current / total)
+            if percentage - last_upload_update[0] >= 0.05 or current == total:
                 bar = await create_progress_bar(current, total, "📤", "")
-                await status_msg.edit_text(
-                    f"📤 **Subiendo video comprimido...**\n\n"
-                    f"{bar}\n"
-                    f"{format_bytes(current)} / {format_bytes(total)}"
-                )
+                try:
+                    await status_msg_ref[0].edit_text(
+                        f"📤 **Subiendo video comprimido...**\n\n"
+                        f"{bar}\n"
+                        f"{format_bytes(current)} / {format_bytes(total)}"
+                    )
+                    last_upload_update[0] = percentage
+                except:
+                    pass
         
         caption = (
             f"✅ **Video comprimido exitosamente**\n\n"
             f"📊 **Estadísticas:**\n"
+            f"• Calidad: {result['quality']}\n"
             f"• Tamaño original: {result['original_size_str']}\n"
             f"• Tamaño comprimido: {result['compressed_size_str']}\n"
             f"• Reducción: {result['reduction']:.1f}%\n\n"
             f"🎥 Comprimido por @Compresor_minimisador_bot"
         )
         
-        await message.reply_video(
-            video=output_path,
-            caption=caption,
-            progress=upload_progress
-        )
+        video_duration = result.get('duration')
+        video_kwargs = {
+            'video': output_path,
+            'caption': caption,
+            'progress': upload_progress,
+            'supports_streaming': True
+        }
+        if video_duration and video_duration > 0:
+            video_kwargs['duration'] = int(video_duration)
         
-        await status_msg.delete()
+        await message.reply_video(**video_kwargs)
+        
+        try:
+            await status_msg_ref[0].delete()
+        except:
+            pass
         
         await cleanup_file(input_path)
         await cleanup_file(output_path)
-        
-        if user_id in user_messages:
-            del user_messages[user_id]
         
         compressor.clear_cancel_flag(user_id)
         
     except Exception as e:
         print(f"Error processing video: {e}")
-        await status_msg.edit_text(
-            "❌ **Error inesperado**\n\n"
-            f"Ocurrió un error: {str(e)}\n"
-            "Por favor, intenta nuevamente."
-        )
+        try:
+            await status_msg_ref[0].edit_text(
+                "❌ **Error inesperado**\n\n"
+                f"Ocurrió un error: {str(e)}\n"
+                "Por favor, intenta nuevamente."
+            )
+        except:
+            pass
         
         compressor.clear_cancel_flag(user_id)
         

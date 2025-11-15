@@ -3,9 +3,43 @@ import asyncio
 import ffmpeg
 from utils import get_file_size, format_bytes
 
+QUALITY_PRESETS = {
+    '240p': {
+        'resolution': '426:240',
+        'bitrate': '400k',
+        'crf': 28,
+        'name': '240p (Máxima compresión)'
+    },
+    '360p': {
+        'resolution': '640:360',
+        'bitrate': '800k',
+        'crf': 26,
+        'name': '360p (Alta compresión)'
+    },
+    '480p': {
+        'resolution': '854:480',
+        'bitrate': '1200k',
+        'crf': 24,
+        'name': '480p (Compresión media)'
+    },
+    '720p': {
+        'resolution': '1280:720',
+        'bitrate': '2500k',
+        'crf': 23,
+        'name': '720p (Buena calidad)'
+    },
+    'original': {
+        'resolution': None,
+        'bitrate': None,
+        'crf': 28,
+        'name': 'Original (Solo codec)'
+    }
+}
+
 class VideoCompressor:
     def __init__(self):
         self.cancel_flag = {}
+        self.user_quality = {}
     
     def set_cancel_flag(self, user_id, value=True):
         self.cancel_flag[user_id] = value
@@ -17,28 +51,50 @@ class VideoCompressor:
         if user_id in self.cancel_flag:
             del self.cancel_flag[user_id]
     
-    async def compress_video(self, input_path, output_path, user_id, progress_callback=None):
+    def set_user_quality(self, user_id, quality):
+        self.user_quality[user_id] = quality
+    
+    def get_user_quality(self, user_id):
+        return self.user_quality.get(user_id, '360p')
+    
+    async def compress_video(self, input_path, output_path, user_id, quality='360p', progress_callback=None):
         try:
             if self.should_cancel(user_id):
                 return None
             
-            probe = ffmpeg.probe(input_path)
-            duration = float(probe['format']['duration'])
+            try:
+                probe = ffmpeg.probe(input_path)
+                duration = float(probe['format'].get('duration', 0))
+                if duration <= 0:
+                    duration = 1
+            except Exception as e:
+                print(f"Error probing video: {e}")
+                duration = 1
+            
+            preset = QUALITY_PRESETS.get(quality, QUALITY_PRESETS['360p'])
+            
+            output_args = {
+                'vcodec': 'libx264',
+                'crf': preset['crf'],
+                'preset': 'medium',
+                'acodec': 'aac',
+                'audio_bitrate': '128k',
+                'movflags': '+faststart'
+            }
+            
+            if preset['resolution']:
+                output_args['vf'] = f"scale={preset['resolution']}:force_original_aspect_ratio=decrease,pad={preset['resolution']}:(ow-iw)/2:(oh-ih)/2"
+            else:
+                output_args['vf'] = 'scale=trunc(iw/2)*2:trunc(ih/2)*2'
+            
+            if preset['bitrate']:
+                output_args['video_bitrate'] = preset['bitrate']
             
             process = (
                 ffmpeg
                 .input(input_path)
-                .output(
-                    output_path,
-                    vcodec='libx264',
-                    crf=28,
-                    preset='medium',
-                    acodec='aac',
-                    audio_bitrate='128k',
-                    vf='scale=trunc(iw/2)*2:trunc(ih/2)*2'
-                )
-                .global_args('-progress', 'pipe:1')
-                .overwrite_output()
+                .output(output_path, **output_args)
+                .global_args('-progress', 'pipe:1', '-y')
             )
             
             cmd = process.compile()
@@ -48,6 +104,7 @@ class VideoCompressor:
                 stderr=asyncio.subprocess.PIPE
             )
             
+            last_update = 0
             while True:
                 if self.should_cancel(user_id):
                     proc.kill()
@@ -68,14 +125,21 @@ class VideoCompressor:
                         time_s = time_ms / 1000000.0
                         progress = min(time_s / duration, 1.0)
                         
-                        if progress_callback:
+                        if progress_callback and (progress - last_update >= 0.02 or progress >= 0.99):
                             await progress_callback(progress)
+                            last_update = progress
                     except:
                         pass
             
             await proc.wait()
             
             if proc.returncode == 0 and os.path.exists(output_path):
+                try:
+                    probe_out = ffmpeg.probe(output_path)
+                    out_duration = float(probe_out['format'].get('duration', 0))
+                except:
+                    out_duration = 0
+                
                 original_size = get_file_size(input_path)
                 compressed_size = get_file_size(output_path)
                 reduction = ((original_size - compressed_size) / original_size) * 100
@@ -86,7 +150,9 @@ class VideoCompressor:
                     'compressed_size': compressed_size,
                     'reduction': reduction,
                     'original_size_str': format_bytes(original_size),
-                    'compressed_size_str': format_bytes(compressed_size)
+                    'compressed_size_str': format_bytes(compressed_size),
+                    'duration': out_duration,
+                    'quality': preset['name']
                 }
             else:
                 return None

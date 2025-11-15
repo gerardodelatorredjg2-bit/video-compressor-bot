@@ -23,13 +23,12 @@ class QueueManager:
             self.processing.discard(user_id)
     
     async def get_next_task(self, user_id):
+        if self.queues[user_id].empty():
+            return None
         try:
-            task = await asyncio.wait_for(
-                self.queues[user_id].get(),
-                timeout=0.1
-            )
+            task = self.queues[user_id].get_nowait()
             return task
-        except asyncio.TimeoutError:
+        except asyncio.QueueEmpty:
             return None
     
     def clear_queue(self, user_id):
