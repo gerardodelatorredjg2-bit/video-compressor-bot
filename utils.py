@@ -23,8 +23,22 @@ async def cleanup_file(file_path):
         print(f"Error cleaning up {file_path}: {e}")
     return False
 
+def sanitize_filename(filename):
+    if not filename:
+        return "video.mp4"
+    
+    base = os.path.basename(filename)
+    base = base.replace('..', '')
+    base = ''.join(c for c in base if c.isalnum() or c in '._- ')
+    
+    if not base or base.startswith('.'):
+        return "video.mp4"
+    
+    return base[:255]
+
 def generate_filename(original_name, suffix="_compressed"):
-    name, ext = os.path.splitext(original_name)
+    sanitized = sanitize_filename(original_name)
+    name, ext = os.path.splitext(sanitized)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     return f"{name}{suffix}_{timestamp}{ext}"
 

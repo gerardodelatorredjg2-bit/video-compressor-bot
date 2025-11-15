@@ -19,7 +19,8 @@ class VideoCompressor:
     
     async def compress_video(self, input_path, output_path, user_id, progress_callback=None):
         try:
-            self.clear_cancel_flag(user_id)
+            if self.should_cancel(user_id):
+                return None
             
             probe = ffmpeg.probe(input_path)
             duration = float(probe['format']['duration'])

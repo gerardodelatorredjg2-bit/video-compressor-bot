@@ -5,7 +5,7 @@ from pyrogram.types import Message
 from config import BOT_TOKEN, API_ID, API_HASH, DOWNLOAD_DIR
 from compressor import compressor
 from queue_manager import queue_manager
-from utils import format_bytes, cleanup_file, generate_filename, create_progress_bar
+from utils import format_bytes, cleanup_file, generate_filename, create_progress_bar, sanitize_filename
 
 app = Client(
     "video_compressor_bot",
@@ -103,20 +103,20 @@ async def handle_video(client, message: Message):
     await queue_manager.add_to_queue(user_id, message)
     
     if not queue_manager.is_processing(user_id):
+        queue_manager.mark_processing(user_id, True)
         asyncio.create_task(process_queue(client, user_id))
 
 async def process_queue(client, user_id):
-    queue_manager.mark_processing(user_id, True)
-    
-    while True:
-        task_message = await queue_manager.get_next_task(user_id)
-        
-        if task_message is None:
-            break
-        
-        await process_video(client, task_message)
-    
-    queue_manager.mark_processing(user_id, False)
+    try:
+        while True:
+            task_message = await queue_manager.get_next_task(user_id)
+            
+            if task_message is None:
+                break
+            
+            await process_video(client, task_message)
+    finally:
+        queue_manager.mark_processing(user_id, False)
 
 async def process_video(client, message: Message):
     user_id = message.from_user.id
@@ -127,8 +127,12 @@ async def process_video(client, message: Message):
         "Esto puede tomar unos momentos dependiendo del tamaño del archivo."
     )
     
+    input_path = None
+    output_path = None
+    
     try:
-        input_path = os.path.join(DOWNLOAD_DIR, f"{user_id}_{video.file_unique_id}_{video.file_name}")
+        safe_filename = sanitize_filename(video.file_name)
+        input_path = os.path.join(DOWNLOAD_DIR, f"{user_id}_{video.file_unique_id}_{safe_filename}")
         
         async def download_progress(current, total):
             if current % (total // 10 + 1) < 50000 or current == total:
@@ -145,6 +149,12 @@ async def process_video(client, message: Message):
             progress=download_progress
         )
         
+        if compressor.should_cancel(user_id):
+            await status_msg.edit_text("❌ **Descarga cancelada por el usuario.**")
+            await cleanup_file(input_path)
+            compressor.clear_cancel_flag(user_id)
+            return
+        
         user_messages[user_id] = status_msg
         
         await status_msg.edit_text(
@@ -152,10 +162,8 @@ async def process_video(client, message: Message):
             "Procesando con FFmpeg. Esto puede tomar varios minutos."
         )
         
-        output_path = os.path.join(
-            DOWNLOAD_DIR,
-            generate_filename(video.file_name, "_compressed")
-        )
+        safe_output_name = generate_filename(video.file_name, "_compressed")
+        output_path = os.path.join(DOWNLOAD_DIR, safe_output_name)
         
         async def compression_progress(progress):
             if user_id in user_messages:
@@ -179,6 +187,7 @@ async def process_video(client, message: Message):
         if result is None:
             if compressor.should_cancel(user_id):
                 await status_msg.edit_text("❌ **Compresión cancelada por el usuario.**")
+                compressor.clear_cancel_flag(user_id)
             else:
                 await status_msg.edit_text(
                     "❌ **Error en la compresión**\n\n"
@@ -186,6 +195,8 @@ async def process_video(client, message: Message):
                     "Por favor, intenta con otro archivo."
                 )
             await cleanup_file(input_path)
+            if output_path and os.path.exists(output_path):
+                await cleanup_file(output_path)
             return
         
         await status_msg.edit_text(
@@ -236,9 +247,12 @@ async def process_video(client, message: Message):
             "Por favor, intenta nuevamente."
         )
         
+        compressor.clear_cancel_flag(user_id)
+        
         try:
-            await cleanup_file(input_path)
-            if 'output_path' in locals():
+            if input_path:
+                await cleanup_file(input_path)
+            if output_path:
                 await cleanup_file(output_path)
         except:
             pass

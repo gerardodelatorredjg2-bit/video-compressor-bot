@@ -38,6 +38,5 @@ class QueueManager:
                 self.queues[user_id].get_nowait()
             except:
                 break
-        self.mark_processing(user_id, False)
 
 queue_manager = QueueManager()
