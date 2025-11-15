@@ -33,6 +33,10 @@ downloads/
 *.session
 *.session-journal
 
+# Session files
+video_compressor_bot.session
+video_compressor_bot.session-journal
+
 # IDE
 .vscode/
 .idea/
