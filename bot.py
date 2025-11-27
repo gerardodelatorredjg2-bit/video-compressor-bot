@@ -247,14 +247,14 @@ async def handle_video(client, message: Message):
     # Botones para elegir calidad
     keyboard = InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("240p 🔥", callback_data=f"video_quality_240p_{message.message_id}"),
-            InlineKeyboardButton("360p ⭐", callback_data=f"video_quality_360p_{message.message_id}")
+            InlineKeyboardButton("240p 🔥", callback_data=f"video_quality_240p_{message.id}"),
+            InlineKeyboardButton("360p ⭐", callback_data=f"video_quality_360p_{message.id}")
         ],
         [
-            InlineKeyboardButton("480p 📺", callback_data=f"video_quality_480p_{message.message_id}"),
-            InlineKeyboardButton("720p 🎬", callback_data=f"video_quality_720p_{message.message_id}")
+            InlineKeyboardButton("480p 📺", callback_data=f"video_quality_480p_{message.id}"),
+            InlineKeyboardButton("720p 🎬", callback_data=f"video_quality_720p_{message.id}")
         ],
-        [InlineKeyboardButton("Original 📹", callback_data=f"video_quality_original_{message.message_id}")]
+        [InlineKeyboardButton("Original 📹", callback_data=f"video_quality_original_{message.id}")]
     ])
     
     if queue_position > 0:
