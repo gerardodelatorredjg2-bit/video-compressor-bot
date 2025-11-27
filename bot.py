@@ -224,13 +224,13 @@ async def process_video(client, message: Message, quality='360p'):
     
     input_path = None
     output_path = None
+    status_msg_ref = [status_msg]
     
     try:
         safe_filename = sanitize_filename(video.file_name)
         input_path = os.path.join(DOWNLOAD_DIR, f"{user_id}_{video.file_unique_id}_{safe_filename}")
         
         last_download_update = [0]
-        status_msg_ref = [status_msg]
         
         async def download_progress(current, total):
             percentage = (current / total)
