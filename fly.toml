@@ -1,0 +1,19 @@
+# Fly.io configuration for Telegram Video Compressor Bot
+app = "video-compressor-bot"
+primary_region = "iad"
+
+[build]
+dockerfile = "Dockerfile"
+
+[env]
+# Your environment variables will be set in Fly.io dashboard
+
+[deploy]
+release_command = "echo 'Starting bot...'"
+
+[[services]]
+internal_port = 8080
+protocol = "tcp"
+
+[vm]
+size = "shared-cpu-1x"
