@@ -366,8 +366,8 @@ async def process_video(client, message: Message, quality='360p'):
             f"Procesando con FFmpeg. Esto puede tomar varios minutos."
         )
         
-        safe_output_name = generate_filename(video.file_name, "")
-        output_path = os.path.join(DOWNLOAD_DIR, safe_output_name)
+        # Use simple generic name to avoid issues
+        output_path = os.path.join(DOWNLOAD_DIR, "video_compressed.mp4")
         
         async def compression_progress(progress):
             try:
@@ -439,7 +439,8 @@ async def process_video(client, message: Message, quality='360p'):
             'video': output_path,
             'caption': caption,
             'progress': upload_progress,
-            'supports_streaming': True
+            'supports_streaming': True,
+            'thumb': None
         }
         if video_duration and video_duration > 0:
             video_kwargs['duration'] = int(video_duration)
