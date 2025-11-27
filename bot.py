@@ -321,9 +321,6 @@ async def process_video(client, message: Message, quality='360p'):
     status_msg_ref = [status_msg]
     
     try:
-        safe_filename = sanitize_filename(video.file_name)
-        input_path = os.path.join(DOWNLOAD_DIR, safe_filename)
-        
         last_download_update = [0]
         
         async def download_progress(current, total):
@@ -340,17 +337,19 @@ async def process_video(client, message: Message, quality='360p'):
                 except:
                     pass
         
-        await message.download(
-            file_name=input_path,
-            progress=download_progress
-        )
+        # Descarga SIN especificar file_name - Pyrogram maneja el nombre automáticamente
+        await message.download(progress=download_progress)
         
-        # Verify file was downloaded successfully (with robust retry)
-        actual_path = await wait_for_file(input_path, timeout=30)
-        if actual_path is None:
-            raise FileNotFoundError(f"Downloaded file not found after 30 seconds: {input_path}")
+        # Buscar el archivo descargado más reciente en DOWNLOAD_DIR
+        files = [os.path.join(DOWNLOAD_DIR, f) for f in os.listdir(DOWNLOAD_DIR) 
+                 if os.path.isfile(os.path.join(DOWNLOAD_DIR, f)) and 
+                 not f.endswith('.temp') and f.endswith(('.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv', '.m4v'))]
         
-        input_path = actual_path
+        if not files:
+            raise FileNotFoundError("Video no se descargó correctamente. Intenta nuevamente.")
+        
+        # Usar el archivo más reciente (último modificado)
+        input_path = max(files, key=os.path.getmtime)
         
         if compressor.should_cancel(user_id):
             await status_msg_ref[0].edit_text("❌ **Descarga cancelada por el usuario.**")
