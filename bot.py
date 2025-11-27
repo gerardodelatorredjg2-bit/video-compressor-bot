@@ -16,7 +16,6 @@ app = Client(
     bot_token=BOT_TOKEN,
     max_concurrent_transmissions=10,
     workers=4,
-    connection_pool_size=4,
     workdir=DOWNLOAD_DIR
 )
 
