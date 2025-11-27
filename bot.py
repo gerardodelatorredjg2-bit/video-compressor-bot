@@ -251,6 +251,15 @@ async def process_video(client, message: Message, quality='360p'):
             progress=download_progress
         )
         
+        # Verify file was downloaded successfully
+        if not os.path.exists(input_path):
+            # Try .temp file
+            temp_path = input_path + ".temp"
+            if os.path.exists(temp_path):
+                os.rename(temp_path, input_path)
+            else:
+                raise FileNotFoundError(f"Downloaded file not found: {input_path}")
+        
         if compressor.should_cancel(user_id):
             await status_msg_ref[0].edit_text("❌ **Descarga cancelada por el usuario.**")
             await cleanup_file(input_path)

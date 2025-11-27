@@ -18,6 +18,10 @@ async def cleanup_file(file_path):
         if os.path.exists(file_path):
             os.remove(file_path)
             return True
+        # Also try to clean up .temp files
+        temp_path = file_path + ".temp"
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
     except Exception as e:
         print(f"Error cleaning up {file_path}: {e}")
     return False
