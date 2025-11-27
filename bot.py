@@ -406,11 +406,13 @@ async def main():
     try:
         # Start bot
         print("✅ Bot is running. Press Ctrl+C to stop.")
-        await app.start()
-        # Keep running
-        await asyncio.Event().wait()
-    finally:
-        await app.stop()
+        async with app:
+            await app.get_me()
+            print("🔗 Bot connected to Telegram!")
+            await asyncio.Event().wait()
+    except Exception as e:
+        print(f"❌ Error: {e}")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    print("🚀 Starting bot services...")
+    app.run()
