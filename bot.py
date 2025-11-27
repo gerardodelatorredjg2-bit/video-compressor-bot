@@ -236,7 +236,7 @@ async def process_video(client, message: Message, quality='360p'):
             f"Procesando con FFmpeg. Esto puede tomar varios minutos."
         )
         
-        safe_output_name = generate_filename(video.file_name, "_compressed")
+        safe_output_name = generate_filename(video.file_name, "")
         output_path = os.path.join(DOWNLOAD_DIR, safe_output_name)
         
         async def compression_progress(progress):

@@ -6,32 +6,32 @@ from utils import get_file_size, format_bytes
 QUALITY_PRESETS = {
     '240p': {
         'resolution': '426:240',
-        'bitrate': '400k',
-        'crf': 28,
+        'bitrate': '300k',
+        'crf': 35,
         'name': '240p (Máxima compresión)'
     },
     '360p': {
         'resolution': '640:360',
-        'bitrate': '800k',
-        'crf': 26,
+        'bitrate': '600k',
+        'crf': 32,
         'name': '360p (Alta compresión)'
     },
     '480p': {
         'resolution': '854:480',
-        'bitrate': '1200k',
-        'crf': 24,
+        'bitrate': '1000k',
+        'crf': 30,
         'name': '480p (Compresión media)'
     },
     '720p': {
         'resolution': '1280:720',
-        'bitrate': '2500k',
-        'crf': 23,
+        'bitrate': '2000k',
+        'crf': 28,
         'name': '720p (Buena calidad)'
     },
     'original': {
         'resolution': None,
         'bitrate': None,
-        'crf': 28,
+        'crf': 32,
         'name': 'Original (Solo codec)'
     }
 }
@@ -76,10 +76,12 @@ class VideoCompressor:
             output_args = {
                 'vcodec': 'libx264',
                 'crf': preset['crf'],
-                'preset': 'medium',
+                'preset': 'ultrafast',
                 'acodec': 'aac',
-                'audio_bitrate': '128k',
-                'movflags': '+faststart'
+                'audio_bitrate': '64k',
+                'movflags': '+faststart',
+                'threads': 0,
+                'rtbufsize': '50M'
             }
             
             if preset['resolution']:
