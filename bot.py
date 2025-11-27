@@ -138,7 +138,7 @@ async def stats_command(client, message: Message):
 @app.on_callback_query(filters.regex("^quality_"))
 async def quality_callback(client, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id
-    data_str = callback_query.data if isinstance(callback_query.data, str) else callback_query.data.decode()
+    data_str = str(callback_query.data)
     quality = data_str.split("_")[1]
     
     compressor.set_user_quality(user_id, quality)

@@ -1,6 +1,7 @@
 import os
 import asyncio
 import ffmpeg
+import subprocess
 from utils import get_file_size, format_bytes
 
 QUALITY_PRESETS = {
@@ -67,6 +68,9 @@ class VideoCompressor:
             if self.should_cancel(user_id):
                 return None
             
+            # Get original file size first (before any processing)
+            original_size = get_file_size(input_path)
+            
             try:
                 probe = ffmpeg.probe(input_path)
                 duration = float(probe['format'].get('duration', 0))
@@ -78,33 +82,36 @@ class VideoCompressor:
             
             preset = QUALITY_PRESETS.get(quality, QUALITY_PRESETS['360p'])
             
-            output_args = {
-                'vcodec': preset['codec'],
-                'crf': preset['crf'],
-                'preset': 'ultrafast',
-                'acodec': 'copy',
-                'movflags': '+faststart',
-                'threads': 0,
-                'g': '250',
-                'x265-params': 'log-level=error'
-            }
+            # Build FFmpeg command for streaming compression
+            cmd = [
+                'ffmpeg',
+                '-i', input_path,
+                '-vcodec', preset['codec'],
+                '-crf', str(preset['crf']),
+                '-preset', 'ultrafast',
+                '-acodec', 'copy',
+                '-movflags', '+faststart',
+                '-threads', '0',
+                '-g', '250',
+                '-x265-params', 'log-level=error',
+            ]
             
             if preset['resolution']:
-                output_args['vf'] = f"scale={preset['resolution']}:flags=fast_bilinear"
+                cmd.extend(['-vf', f"scale={preset['resolution']}:flags=fast_bilinear"])
             else:
-                output_args['vf'] = 'scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=fast_bilinear'
+                cmd.extend(['-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=fast_bilinear'])
             
             if preset['bitrate']:
-                output_args['video_bitrate'] = preset['bitrate']
+                cmd.extend(['-b:v', preset['bitrate']])
             
-            process = (
-                ffmpeg
-                .input(input_path)
-                .output(output_path, **output_args)
-                .global_args('-progress', 'pipe:1', '-y', '-loglevel', 'error')
-            )
+            cmd.extend([
+                '-progress', 'pipe:1',
+                '-y',
+                '-loglevel', 'error',
+                output_path
+            ])
             
-            cmd = process.compile()
+            # Use subprocess for better control on large files
             proc = await asyncio.create_subprocess_exec(
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
@@ -115,16 +122,31 @@ class VideoCompressor:
             while True:
                 if self.should_cancel(user_id):
                     proc.kill()
-                    await proc.wait()
+                    try:
+                        await asyncio.wait_for(proc.wait(), timeout=2)
+                    except:
+                        pass
                     if os.path.exists(output_path):
-                        os.remove(output_path)
+                        try:
+                            os.remove(output_path)
+                        except:
+                            pass
                     return None
                 
-                line = await proc.stdout.readline()
+                try:
+                    line = await asyncio.wait_for(proc.stdout.readline(), timeout=120)
+                except asyncio.TimeoutError:
+                    print("Compression timeout - killing process")
+                    proc.kill()
+                    return None
+                    
                 if not line:
                     break
                 
-                line = line.decode('utf-8').strip()
+                try:
+                    line = line.decode('utf-8').strip()
+                except:
+                    continue
                 
                 if line.startswith('out_time_ms='):
                     try:
@@ -147,9 +169,8 @@ class VideoCompressor:
                 except:
                     out_duration = 0
                 
-                original_size = get_file_size(input_path)
                 compressed_size = get_file_size(output_path)
-                reduction = ((original_size - compressed_size) / original_size) * 100
+                reduction = ((original_size - compressed_size) / original_size * 100) if original_size > 0 else 0
                 
                 return {
                     'success': True,
