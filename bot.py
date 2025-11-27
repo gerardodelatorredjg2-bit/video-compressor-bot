@@ -381,16 +381,17 @@ async def health_check(request):
     })
 
 async def start_web_server():
-    """Start aiohttp web server on port 8080 for health checks"""
+    """Start aiohttp web server on PORT (for Render) or 8080 (local)"""
+    port = int(os.getenv('PORT', 8080))
     web_app = web.Application()
     web_app.router.add_get('/health', health_check)
     web_app.router.add_get('/', health_check)
     
     runner = web.AppRunner(web_app)
     await runner.setup()
-    site = web.TCPSite(runner, '0.0.0.0', 8080)
+    site = web.TCPSite(runner, '0.0.0.0', port)
     await site.start()
-    print("🌐 Web server started on http://0.0.0.0:8080")
+    print(f"🌐 Web server started on http://0.0.0.0:{port}")
     return runner
 
 async def main():
