@@ -10,8 +10,7 @@ API_HASH = os.getenv("API_HASH", "")
 DOWNLOAD_DIR = "downloads"
 MAX_FILE_SIZE = 3000 * 1024 * 1024
 
-# Download optimization settings
-DOWNLOAD_BLOCK_SIZE = 1024 * 1024  # 1MB chunks for faster downloads
+# Download optimization settings (Pyrogram doesn't support block_size parameter)
 CONCURRENT_DOWNLOADS = 10
 WORKER_THREADS = 4
 
