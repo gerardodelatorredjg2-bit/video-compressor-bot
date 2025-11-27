@@ -132,7 +132,7 @@ class VideoCompressor:
                         time_s = time_ms / 1000000.0
                         progress = min(time_s / duration, 1.0)
                         
-                        if progress_callback and (progress - last_update >= 0.01 or progress >= 0.99):
+                        if progress_callback and (progress - last_update >= 0.10 or progress >= 0.99):
                             await progress_callback(progress)
                             last_update = progress
                     except:
