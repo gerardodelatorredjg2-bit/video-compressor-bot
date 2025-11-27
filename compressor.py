@@ -7,31 +7,31 @@ QUALITY_PRESETS = {
     '240p': {
         'resolution': '426:240',
         'bitrate': '300k',
-        'crf': 35,
+        'crf': 40,
         'name': '240p (Máxima compresión)'
     },
     '360p': {
         'resolution': '640:360',
         'bitrate': '600k',
-        'crf': 32,
+        'crf': 38,
         'name': '360p (Alta compresión)'
     },
     '480p': {
         'resolution': '854:480',
         'bitrate': '1000k',
-        'crf': 30,
+        'crf': 36,
         'name': '480p (Compresión media)'
     },
     '720p': {
         'resolution': '1280:720',
         'bitrate': '2000k',
-        'crf': 28,
+        'crf': 34,
         'name': '720p (Buena calidad)'
     },
     'original': {
         'resolution': None,
         'bitrate': None,
-        'crf': 32,
+        'crf': 38,
         'name': 'Original (Solo codec)'
     }
 }
@@ -77,17 +77,16 @@ class VideoCompressor:
                 'vcodec': 'libx264',
                 'crf': preset['crf'],
                 'preset': 'ultrafast',
-                'acodec': 'aac',
-                'audio_bitrate': '64k',
+                'acodec': 'copy',
                 'movflags': '+faststart',
                 'threads': 0,
-                'rtbufsize': '50M'
+                'g': '250'
             }
             
             if preset['resolution']:
-                output_args['vf'] = f"scale={preset['resolution']}:force_original_aspect_ratio=decrease,pad={preset['resolution']}:(ow-iw)/2:(oh-ih)/2"
+                output_args['vf'] = f"scale={preset['resolution']}:flags=fast_bilinear"
             else:
-                output_args['vf'] = 'scale=trunc(iw/2)*2:trunc(ih/2)*2'
+                output_args['vf'] = 'scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=fast_bilinear'
             
             if preset['bitrate']:
                 output_args['video_bitrate'] = preset['bitrate']
@@ -96,7 +95,7 @@ class VideoCompressor:
                 ffmpeg
                 .input(input_path)
                 .output(output_path, **output_args)
-                .global_args('-progress', 'pipe:1', '-y')
+                .global_args('-progress', 'pipe:1', '-y', '-loglevel', 'error')
             )
             
             cmd = process.compile()
