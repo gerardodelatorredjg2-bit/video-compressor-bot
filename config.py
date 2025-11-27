@@ -10,5 +10,10 @@ API_HASH = os.getenv("API_HASH", "")
 DOWNLOAD_DIR = "downloads"
 MAX_FILE_SIZE = 3000 * 1024 * 1024
 
+# Download optimization settings
+DOWNLOAD_BLOCK_SIZE = 1024 * 1024  # 1MB chunks for faster downloads
+CONCURRENT_DOWNLOADS = 10
+WORKER_THREADS = 4
+
 if not os.path.exists(DOWNLOAD_DIR):
     os.makedirs(DOWNLOAD_DIR)

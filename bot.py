@@ -4,7 +4,7 @@ from pyrogram.client import Client
 from pyrogram import filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from aiohttp import web
-from config import BOT_TOKEN, API_ID, API_HASH, DOWNLOAD_DIR
+from config import BOT_TOKEN, API_ID, API_HASH, DOWNLOAD_DIR, DOWNLOAD_BLOCK_SIZE
 from compressor import compressor, QUALITY_PRESETS
 from queue_manager import queue_manager
 from utils import format_bytes, cleanup_file, generate_filename, create_progress_bar, sanitize_filename
@@ -13,7 +13,11 @@ app = Client(
     "video_compressor_bot",
     api_id=API_ID,
     api_hash=API_HASH,
-    bot_token=BOT_TOKEN
+    bot_token=BOT_TOKEN,
+    max_concurrent_transmissions=10,
+    workers=4,
+    connection_pool_size=4,
+    workdir=DOWNLOAD_DIR
 )
 
 
@@ -248,7 +252,8 @@ async def process_video(client, message: Message, quality='360p'):
         
         await message.download(
             file_name=input_path,
-            progress=download_progress
+            progress=download_progress,
+            block_size=DOWNLOAD_BLOCK_SIZE
         )
         
         # Verify file was downloaded successfully
