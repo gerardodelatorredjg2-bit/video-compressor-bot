@@ -7,7 +7,7 @@ from aiohttp import web
 from config import BOT_TOKEN, API_ID, API_HASH, DOWNLOAD_DIR, DOWNLOAD_BLOCK_SIZE
 from compressor import compressor, QUALITY_PRESETS
 from queue_manager import queue_manager
-from utils import format_bytes, cleanup_file, generate_filename, create_progress_bar, sanitize_filename
+from utils import format_bytes, cleanup_file, generate_filename, create_progress_bar, sanitize_filename, wait_for_file
 
 app = Client(
     "video_compressor_bot",
@@ -323,7 +323,7 @@ async def process_video(client, message: Message, quality='360p'):
     
     try:
         safe_filename = sanitize_filename(video.file_name)
-        input_path = os.path.join(DOWNLOAD_DIR, f"{user_id}_{video.file_unique_id}_{safe_filename}")
+        input_path = os.path.join(DOWNLOAD_DIR, safe_filename)
         
         last_download_update = [0]
         
@@ -347,14 +347,12 @@ async def process_video(client, message: Message, quality='360p'):
             block_size=DOWNLOAD_BLOCK_SIZE
         )
         
-        # Verify file was downloaded successfully
-        if not os.path.exists(input_path):
-            # Try .temp file
-            temp_path = input_path + ".temp"
-            if os.path.exists(temp_path):
-                os.rename(temp_path, input_path)
-            else:
-                raise FileNotFoundError(f"Downloaded file not found: {input_path}")
+        # Verify file was downloaded successfully (with robust retry)
+        actual_path = await wait_for_file(input_path, timeout=30)
+        if actual_path is None:
+            raise FileNotFoundError(f"Downloaded file not found after 30 seconds: {input_path}")
+        
+        input_path = actual_path
         
         if compressor.should_cancel(user_id):
             await status_msg_ref[0].edit_text("❌ **Descarga cancelada por el usuario.**")

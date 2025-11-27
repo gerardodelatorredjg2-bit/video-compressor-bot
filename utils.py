@@ -1,6 +1,7 @@
 import os
 import asyncio
 import aiofiles
+import glob
 from datetime import datetime
 
 def format_bytes(size):
@@ -12,6 +13,41 @@ def format_bytes(size):
 
 def get_file_size(file_path):
     return os.path.getsize(file_path)
+
+async def wait_for_file(file_path, timeout=30, check_interval=0.5):
+    """
+    Robustly wait for a file to exist, handling .temp file renames
+    Returns the actual path to the file, or None if timeout
+    """
+    start_time = asyncio.get_event_loop().time()
+    base_path = file_path.rstrip('.temp')
+    
+    while asyncio.get_event_loop().time() - start_time < timeout:
+        # Check main path
+        if os.path.exists(base_path):
+            return base_path
+        
+        # Check .temp path
+        temp_path = base_path + ".temp"
+        if os.path.exists(temp_path):
+            try:
+                os.rename(temp_path, base_path)
+                return base_path
+            except:
+                await asyncio.sleep(check_interval)
+                continue
+        
+        await asyncio.sleep(check_interval)
+    
+    # Last attempt: search for partial matches
+    dir_path = os.path.dirname(base_path) or "."
+    base_name = os.path.basename(base_path)
+    
+    for file in glob.glob(os.path.join(dir_path, f"*{base_name}*")):
+        if not file.endswith('.temp'):
+            return file
+    
+    return None
 
 async def cleanup_file(file_path):
     try:
