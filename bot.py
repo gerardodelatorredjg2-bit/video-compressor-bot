@@ -2,6 +2,7 @@ import os
 import asyncio
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from aiohttp import web
 from config import BOT_TOKEN, API_ID, API_HASH, DOWNLOAD_DIR
 from compressor import compressor, QUALITY_PRESETS
 from queue_manager import queue_manager
@@ -371,7 +372,42 @@ async def process_video(client, message: Message, quality='360p'):
         except:
             pass
 
-if __name__ == "__main__":
+async def health_check(request):
+    """Health check endpoint for keep-alive (Render, UptimeRobot, etc)"""
+    return web.json_response({
+        "status": "ok",
+        "bot": "Video Compressor Bot",
+        "message": "Bot is running 24/7 ✅"
+    })
+
+async def start_web_server():
+    """Start aiohttp web server on port 8080 for health checks"""
+    web_app = web.Application()
+    web_app.router.add_get('/health', health_check)
+    web_app.router.add_get('/', health_check)
+    
+    runner = web.AppRunner(web_app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', 8080)
+    await site.start()
+    print("🌐 Web server started on http://0.0.0.0:8080")
+    return runner
+
+async def main():
+    """Main function to run both web server and bot"""
     print("🤖 Starting Telegram Video Compressor Bot...")
-    print("✅ Bot is running. Press Ctrl+C to stop.")
-    app.run()
+    
+    # Start web server
+    web_runner = await start_web_server()
+    
+    try:
+        # Start bot
+        print("✅ Bot is running. Press Ctrl+C to stop.")
+        await app.start()
+        # Keep running
+        await asyncio.Event().wait()
+    finally:
+        await app.stop()
+
+if __name__ == "__main__":
+    asyncio.run(main())
