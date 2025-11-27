@@ -16,7 +16,6 @@ def get_file_size(file_path):
 async def cleanup_file(file_path):
     try:
         if os.path.exists(file_path):
-            await asyncio.sleep(1)
             os.remove(file_path)
             return True
     except Exception as e:

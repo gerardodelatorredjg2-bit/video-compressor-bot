@@ -5,34 +5,39 @@ from utils import get_file_size, format_bytes
 
 QUALITY_PRESETS = {
     '240p': {
+        'codec': 'libx265',
         'resolution': '426:240',
-        'bitrate': '300k',
-        'crf': 40,
+        'bitrate': '250k',
+        'crf': 32,
         'name': '240p (Máxima compresión)'
     },
     '360p': {
+        'codec': 'libx265',
         'resolution': '640:360',
-        'bitrate': '600k',
-        'crf': 38,
-        'name': '360p (Alta compresión)'
+        'bitrate': '500k',
+        'crf': 30,
+        'name': '360p (Alta compresión) ⭐'
     },
     '480p': {
+        'codec': 'libx265',
         'resolution': '854:480',
-        'bitrate': '1000k',
-        'crf': 36,
+        'bitrate': '900k',
+        'crf': 28,
         'name': '480p (Compresión media)'
     },
     '720p': {
+        'codec': 'libx265',
         'resolution': '1280:720',
-        'bitrate': '2000k',
-        'crf': 34,
+        'bitrate': '1800k',
+        'crf': 26,
         'name': '720p (Buena calidad)'
     },
     'original': {
+        'codec': 'libx265',
         'resolution': None,
         'bitrate': None,
-        'crf': 38,
-        'name': 'Original (Solo codec)'
+        'crf': 30,
+        'name': 'Original (Máxima velocidad)'
     }
 }
 
@@ -74,13 +79,14 @@ class VideoCompressor:
             preset = QUALITY_PRESETS.get(quality, QUALITY_PRESETS['360p'])
             
             output_args = {
-                'vcodec': 'libx264',
+                'vcodec': preset['codec'],
                 'crf': preset['crf'],
                 'preset': 'ultrafast',
                 'acodec': 'copy',
                 'movflags': '+faststart',
                 'threads': 0,
-                'g': '250'
+                'g': '250',
+                'x265-params': 'log-level=error'
             }
             
             if preset['resolution']:

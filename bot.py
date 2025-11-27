@@ -30,8 +30,9 @@ async def start_command(client, message: Message):
         "**Comandos:**\n"
         "/start - Mostrar este mensaje\n"
         "/help - Ayuda detallada\n"
-        "/cancel - Cancelar compresión actual\n"
-        "/quality - Cambiar calidad de compresión\n\n"
+        "/quality - Cambiar calidad de compresión\n"
+        "/stats - Ver estadísticas y optimizaciones\n"
+        "/cancel - Cancelar compresión actual\n\n"
         "¡Envía un video para comenzar!"
     )
     await message.reply_text(welcome_text)
@@ -108,6 +109,29 @@ async def cancel_command(client, message: Message):
             await message.reply_text("❌ **Cola limpiada**\n\nSe han eliminado todos los videos pendientes.")
         else:
             await message.reply_text("ℹ️ No hay ninguna operación en curso para cancelar.")
+
+@app.on_message(filters.command("stats"))
+async def stats_command(client, message: Message):
+    stats_text = (
+        "📊 **Estadísticas del Bot**\n\n"
+        "🚀 **Optimizaciones Activas:**\n"
+        "✅ Codec HEVC (libx265) - Mejor compresión\n"
+        "✅ Preset ultrafast - Máxima velocidad\n"
+        "✅ Copia directa de audio - Sin recodificación\n"
+        "✅ Escalado rápido - Algoritmo optimizado\n"
+        "✅ Barra de progreso en tiempo real\n"
+        "✅ Cola inteligente por usuario\n\n"
+        "⚡ **Rendimiento Esperado:**\n"
+        "• 240p: ~70-90% reducción de tamaño\n"
+        "• 360p: ~60-80% reducción de tamaño ⭐\n"
+        "• 480p: ~50-70% reducción de tamaño\n"
+        "• 720p: ~30-50% reducción de tamaño\n\n"
+        "💡 **Tips:**\n"
+        "• Usa 240p para máxima compresión\n"
+        "• Usa 360p para balance (recomendado)\n"
+        "• /quality para cambiar predeterminado"
+    )
+    await message.reply_text(stats_text)
 
 @app.on_callback_query(filters.regex("^quality_"))
 async def quality_callback(client, callback_query: CallbackQuery):
