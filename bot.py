@@ -33,15 +33,19 @@ async def start_command(client, message: Message):
         "✅ Barra de progreso mejorada\n"
         "✅ Sistema de cola inteligente\n"
         "✅ Cancelación de operaciones\n\n"
-        "**Comandos:**\n"
-        "/start - Mostrar este mensaje\n"
-        "/help - Ayuda detallada\n"
-        "/quality - Cambiar calidad de compresión\n"
-        "/stats - Ver estadísticas y optimizaciones\n"
-        "/cancel - Cancelar compresión actual\n\n"
         "¡Envía un video para comenzar!"
     )
-    await message.reply_text(welcome_text)
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("📚 Ayuda", callback_data="show_help"),
+            InlineKeyboardButton("⚙️ Calidad", callback_data="show_quality")
+        ],
+        [
+            InlineKeyboardButton("📊 Estadísticas", callback_data="show_stats"),
+            InlineKeyboardButton("❌ Cancelar", callback_data="show_cancel")
+        ]
+    ])
+    await message.reply_text(welcome_text, reply_markup=keyboard)
 
 @app.on_message(filters.command("help"))
 async def help_command(client, message: Message):
@@ -59,15 +63,12 @@ async def help_command(client, message: Message):
         "• 360p - Alta compresión (~60-80% reducción) ⭐\n"
         "• 480p - Compresión media (~40-60% reducción)\n"
         "• 720p - Buena calidad (~20-40% reducción)\n"
-        "• Original - Solo cambia codec\n\n"
-        "**Características avanzadas:**\n"
-        "• Cola para múltiples videos\n"
-        "• /cancel para cancelar\n"
-        "• /quality para cambiar calidad predeterminada\n"
-        "• Barra de progreso en tiempo real\n"
-        "• Reporte de reducción de tamaño"
+        "• Original - Solo cambia codec"
     )
-    await message.reply_text(help_text)
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("⚙️ Cambiar Calidad", callback_data="show_quality")]
+    ])
+    await message.reply_text(help_text, reply_markup=keyboard)
 
 @app.on_message(filters.command("quality"))
 async def quality_command(client, message: Message):
@@ -137,7 +138,72 @@ async def stats_command(client, message: Message):
         "• Usa 360p para balance (recomendado)\n"
         "• /quality para cambiar predeterminado"
     )
-    await message.reply_text(stats_text)
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("⚙️ Cambiar Calidad", callback_data="show_quality")]
+    ])
+    await message.reply_text(stats_text, reply_markup=keyboard)
+
+@app.on_callback_query(filters.regex("^show_"))
+async def menu_callback(client, callback_query: CallbackQuery):
+    action = callback_query.data.split("_")[1]
+    
+    if action == "help":
+        help_text = (
+            "📚 **Ayuda del Bot Compresor**\n\n"
+            "**Cómo usar:**\n"
+            "1. Envía un archivo de video\n"
+            "2. Selecciona la calidad\n"
+            "3. Espera mientras se comprime\n"
+            "4. ¡Recibe tu video!\n\n"
+            "**Formatos:** MP4, AVI, MOV, MKV, FLV, WMV\n"
+            "**Máximo:** 3GB por video"
+        )
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("⚙️ Calidad", callback_data="show_quality")]
+        ])
+        await callback_query.message.edit_text(help_text, reply_markup=keyboard)
+    
+    elif action == "quality":
+        user_id = callback_query.from_user.id
+        current_quality = compressor.get_user_quality(user_id)
+        keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("240p 🔥", callback_data="quality_240p"),
+                InlineKeyboardButton("360p ⭐", callback_data="quality_360p")
+            ],
+            [
+                InlineKeyboardButton("480p 📺", callback_data="quality_480p"),
+                InlineKeyboardButton("720p 🎬", callback_data="quality_720p")
+            ],
+            [InlineKeyboardButton("Original 📹", callback_data="quality_original")]
+        ])
+        await callback_query.message.edit_text(
+            f"🎛️ **Configuración de Calidad**\n\n"
+            f"Calidad actual: **{QUALITY_PRESETS[current_quality]['name']}**",
+            reply_markup=keyboard
+        )
+    
+    elif action == "stats":
+        stats_text = (
+            "📊 **Estadísticas y Optimizaciones**\n\n"
+            "🚀 **Activas:**\n"
+            "✅ HEVC (libx265)\n"
+            "✅ Ultrafast preset\n"
+            "✅ 10 descargas paralelas\n"
+            "✅ 1MB block size\n\n"
+            "📈 **Rendimiento:**\n"
+            "• 240p: 70-90% reducción\n"
+            "• 360p: 60-80% reducción ⭐\n"
+            "• 480p: 50-70% reducción\n"
+            "• 720p: 30-50% reducción"
+        )
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("⚙️ Calidad", callback_data="show_quality")]
+        ])
+        await callback_query.message.edit_text(stats_text, reply_markup=keyboard)
+    
+    elif action == "cancel":
+        await callback_query.answer("Usa /cancel para cancelar operaciones")
 
 @app.on_callback_query(filters.regex("^quality_"))
 async def quality_callback(client, callback_query: CallbackQuery):
@@ -177,31 +243,56 @@ async def handle_video(client, message: Message):
         return
     
     quality = compressor.get_user_quality(user_id)
-    
     queue_position = queue_manager.get_queue_position(user_id)
+    
+    # Botones para elegir calidad
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("240p 🔥", callback_data=f"video_quality_240p_{message.message_id}"),
+            InlineKeyboardButton("360p ⭐", callback_data=f"video_quality_360p_{message.message_id}")
+        ],
+        [
+            InlineKeyboardButton("480p 📺", callback_data=f"video_quality_480p_{message.message_id}"),
+            InlineKeyboardButton("720p 🎬", callback_data=f"video_quality_720p_{message.message_id}")
+        ],
+        [InlineKeyboardButton("Original 📹", callback_data=f"video_quality_original_{message.message_id}")]
+    ])
     
     if queue_position > 0:
         await message.reply_text(
-            f"📥 **Video agregado a la cola**\n\n"
-            f"Calidad: **{QUALITY_PRESETS[quality]['name']}**\n"
-            f"Posición en cola: **{queue_position + 1}**\n"
-            f"Tu video será procesado pronto.\n\n"
-            f"Usa /quality para cambiar la calidad predeterminada."
+            f"📥 **Video recibido (Posición {queue_position + 1} en cola)**\n\n"
+            f"Tamaño: **{format_bytes(video.file_size)}**\n"
+            f"Calidad predeterminada: **{QUALITY_PRESETS[quality]['name']}**\n\n"
+            f"O elige otra calidad:",
+            reply_markup=keyboard
         )
     else:
         await message.reply_text(
             f"🎥 **Video recibido**\n\n"
             f"Tamaño: **{format_bytes(video.file_size)}**\n"
-            f"Calidad: **{QUALITY_PRESETS[quality]['name']}**\n\n"
-            f"⚙️ Iniciando compresión...\n"
-            f"Usa /quality para cambiar la calidad predeterminada."
+            f"Calidad predeterminada: **{QUALITY_PRESETS[quality]['name']}**\n\n"
+            f"O elige otra calidad:",
+            reply_markup=keyboard
         )
     
+    # Usar calidad por defecto si no se elige una
     await queue_manager.add_to_queue(user_id, (message, quality))
     
     if not queue_manager.is_processing(user_id):
         queue_manager.mark_processing(user_id, True)
         asyncio.create_task(process_queue(client, user_id))
+
+@app.on_callback_query(filters.regex("^video_quality_"))
+async def video_quality_callback(client, callback_query: CallbackQuery):
+    data_parts = callback_query.data.split("_")
+    quality = data_parts[2]
+    
+    await callback_query.answer(f"✅ Procesando con {QUALITY_PRESETS[quality]['name']}")
+    
+    try:
+        await callback_query.message.delete()
+    except:
+        pass
 
 async def process_queue(client, user_id):
     try:
