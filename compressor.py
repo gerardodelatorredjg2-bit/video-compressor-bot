@@ -88,25 +88,23 @@ class VideoCompressor:
             
             preset = QUALITY_PRESETS.get(quality, QUALITY_PRESETS['360p'])
             
-            # Build FFmpeg command for MÁXIMA VELOCIDAD
+            # Build FFmpeg command for VELOCIDAD EMPRESARIAL
             cmd = [
                 'ffmpeg',
                 '-i', input_path,
                 '-vcodec', preset['codec'],
                 '-crf', str(preset['crf']),
-                '-preset', 'superfast',
-                '-acodec', 'aac',
-                '-ab', '64k',
+                '-preset', 'veryfast',
+                '-acodec', 'copy',
                 '-threads', '0',
-                '-g', '50',
-                '-x265-params', 'log-level=error:aq-mode=0:rc-lookahead=10:me=1:subme=1:bframes=1:ref=1',
-                '-max-muxing-queue-size', '9999',
+                '-g', '100',
+                '-x265-params', 'log-level=error',
             ]
             
             if preset['resolution']:
-                cmd.extend(['-vf', f"scale={preset['resolution']}:flags=neighbor"])
+                cmd.extend(['-vf', f"scale={preset['resolution']}:flags=fast_bilinear"])
             else:
-                cmd.extend(['-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=neighbor'])
+                cmd.extend(['-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=fast_bilinear'])
             
             if preset['bitrate']:
                 cmd.extend(['-b:v', preset['bitrate']])
