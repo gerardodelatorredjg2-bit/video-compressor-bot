@@ -124,6 +124,7 @@ class VideoCompressor:
             )
             
             last_update = 0
+            start_time = asyncio.get_event_loop().time()
             while True:
                 if self.should_cancel(user_id):
                     proc.kill()
@@ -160,7 +161,10 @@ class VideoCompressor:
                         progress = min(time_s / duration, 1.0)
                         
                         if progress_callback and (progress - last_update >= 0.02 or progress >= 0.99):
-                            await progress_callback(progress)
+                            current_time = asyncio.get_event_loop().time()
+                            elapsed = int(current_time - start_time)
+                            current_size = get_file_size(output_path) if os.path.exists(output_path) else 0
+                            await progress_callback(progress, elapsed, current_size)
                             last_update = progress
                     except:
                         pass

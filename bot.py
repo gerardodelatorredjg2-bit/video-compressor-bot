@@ -392,17 +392,32 @@ async def process_video(client, message: Message, quality='360p'):
         
         last_progress_update = [0.0]
         
-        async def compression_progress(progress):
+        async def compression_progress(progress, elapsed=0, current_size=0):
             # Solo actualizar si ha cambiado más del 2%
             if abs(progress - last_progress_update[0]) < 0.02 and progress < 0.99:
                 return
             
             try:
                 bar = await create_progress_bar(int(progress * 100), 100, "⚙️", "")
+                
+                # Calcular tiempo estimado
+                if progress > 0.01:
+                    estimated_total = int(elapsed / progress)
+                    remaining = estimated_total - elapsed
+                else:
+                    remaining = 0
+                
+                time_str = f"{elapsed//60:02d}:{elapsed%60:02d}"
+                size_str = format_bytes(current_size) if current_size > 0 else "0 B"
+                speed_str = format_bytes(current_size // max(elapsed, 1)) if elapsed > 0 else "0 B/s"
+                
                 await status_msg_ref[0].edit_text(
-                    f"⚙️ **Comprimiendo video...**\n\n"
+                    f"🎬 **Comprimiendo...**\n\n"
                     f"{bar}\n"
-                    f"Progreso: {progress * 100:.1f}%"
+                    f"Progreso: {progress * 100:.1f}%\n\n"
+                    f"⏱️ Tiempo: {time_str}\n"
+                    f"🎛️ Velocidad: {speed_str}/s\n"
+                    f"📦 Tamaño: {size_str}"
                 )
                 last_progress_update[0] = progress
             except:
