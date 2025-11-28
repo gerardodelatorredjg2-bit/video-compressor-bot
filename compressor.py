@@ -1,7 +1,7 @@
 import os
 import asyncio
-import ffmpeg
 import subprocess
+import json
 from utils import get_file_size, format_bytes
 
 QUALITY_PRESETS = {
@@ -72,7 +72,13 @@ class VideoCompressor:
             original_size = get_file_size(input_path)
             
             try:
-                probe = ffmpeg.probe(input_path)
+                result = await asyncio.create_subprocess_exec(
+                    'ffprobe', '-v', 'error', '-show_format', '-of', 'json', input_path,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE
+                )
+                stdout, _ = await result.communicate()
+                probe = json.loads(stdout)
                 duration = float(probe['format'].get('duration', 0))
                 if duration <= 0:
                     duration = 1
@@ -163,8 +169,15 @@ class VideoCompressor:
             await proc.wait()
             
             if proc.returncode == 0 and os.path.exists(output_path):
+                out_duration = 0
                 try:
-                    probe_out = ffmpeg.probe(output_path)
+                    result = await asyncio.create_subprocess_exec(
+                        'ffprobe', '-v', 'error', '-show_format', '-of', 'json', output_path,
+                        stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.PIPE
+                    )
+                    stdout, _ = await result.communicate()
+                    probe_out = json.loads(stdout)
                     out_duration = float(probe_out['format'].get('duration', 0))
                 except:
                     out_duration = 0
