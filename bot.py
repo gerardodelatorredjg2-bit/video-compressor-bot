@@ -330,7 +330,7 @@ async def process_video(client, message: Message, quality='360p'):
         
         async def download_progress(current, total):
             percentage = (current / total)
-            if percentage - last_download_update[0] >= 0.05 or current == total:
+            if percentage - last_download_update[0] >= 0.02 or current == total:
                 bar = await create_progress_bar(current, total, "📥", "")
                 try:
                     await status_msg_ref[0].edit_text(
@@ -394,7 +394,7 @@ async def process_video(client, message: Message, quality='360p'):
         
         async def compression_progress(progress):
             # Solo actualizar si ha cambiado más del 2%
-            if abs(progress - last_progress_update[0]) < 0.02:
+            if abs(progress - last_progress_update[0]) < 0.02 and progress < 0.99:
                 return
             
             try:
@@ -440,7 +440,7 @@ async def process_video(client, message: Message, quality='360p'):
         
         async def upload_progress(current, total):
             percentage = (current / total) if total > 0 else 0
-            if abs(percentage - last_upload_update[0]) < 0.05 and current != total:
+            if abs(percentage - last_upload_update[0]) < 0.02 and current != total:
                 return
                 
             try:
