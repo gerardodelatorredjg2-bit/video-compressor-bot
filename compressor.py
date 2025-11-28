@@ -8,36 +8,36 @@ QUALITY_PRESETS = {
     '240p': {
         'codec': 'libx265',
         'resolution': '426:240',
-        'bitrate': '250k',
-        'crf': 32,
+        'bitrate': '200k',
+        'crf': 38,
         'name': '240p (Máxima compresión)'
     },
     '360p': {
         'codec': 'libx265',
         'resolution': '640:360',
-        'bitrate': '500k',
-        'crf': 30,
+        'bitrate': '350k',
+        'crf': 36,
         'name': '360p (Alta compresión) ⭐'
     },
     '480p': {
         'codec': 'libx265',
         'resolution': '854:480',
-        'bitrate': '900k',
-        'crf': 28,
+        'bitrate': '600k',
+        'crf': 34,
         'name': '480p (Compresión media)'
     },
     '720p': {
         'codec': 'libx265',
         'resolution': '1280:720',
-        'bitrate': '1800k',
-        'crf': 26,
+        'bitrate': '1200k',
+        'crf': 32,
         'name': '720p (Buena calidad)'
     },
     'original': {
         'codec': 'libx265',
         'resolution': None,
         'bitrate': None,
-        'crf': 30,
+        'crf': 36,
         'name': 'Original (Máxima velocidad)'
     }
 }
@@ -88,24 +88,25 @@ class VideoCompressor:
             
             preset = QUALITY_PRESETS.get(quality, QUALITY_PRESETS['360p'])
             
-            # Build FFmpeg command for streaming compression
+            # Build FFmpeg command for MÁXIMA VELOCIDAD
             cmd = [
                 'ffmpeg',
                 '-i', input_path,
                 '-vcodec', preset['codec'],
                 '-crf', str(preset['crf']),
-                '-preset', 'ultrafast',
-                '-acodec', 'copy',
-                '-movflags', '+faststart',
+                '-preset', 'superfast',
+                '-acodec', 'aac',
+                '-ab', '64k',
                 '-threads', '0',
-                '-g', '250',
-                '-x265-params', 'log-level=error',
+                '-g', '50',
+                '-x265-params', 'log-level=error:aq-mode=0:rc-lookahead=10:me=1:subme=1:bframes=1:ref=1',
+                '-max-muxing-queue-size', '9999',
             ]
             
             if preset['resolution']:
-                cmd.extend(['-vf', f"scale={preset['resolution']}:flags=fast_bilinear"])
+                cmd.extend(['-vf', f"scale={preset['resolution']}:flags=neighbor"])
             else:
-                cmd.extend(['-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=fast_bilinear'])
+                cmd.extend(['-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2:flags=neighbor'])
             
             if preset['bitrate']:
                 cmd.extend(['-b:v', preset['bitrate']])
