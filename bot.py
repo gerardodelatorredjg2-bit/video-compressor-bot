@@ -155,7 +155,7 @@ async def menu_callback(client, callback_query: CallbackQuery):
             "3. Espera mientras se comprime\n"
             "4. ¡Recibe tu video!\n\n"
             "**Formatos:** MP4, AVI, MOV, MKV, FLV, WMV\n"
-            "**Máximo:** 3GB por video"
+            "**Máximo:** 2GB por video"
         )
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("⚙️ Calidad", callback_data="show_quality")]

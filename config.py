@@ -8,7 +8,7 @@ API_ID = int(os.getenv("API_ID", "0"))
 API_HASH = os.getenv("API_HASH", "")
 
 DOWNLOAD_DIR = "downloads"
-MAX_FILE_SIZE = 3000 * 1024 * 1024
+MAX_FILE_SIZE = 2000 * 1024 * 1024
 
 # Download optimization settings (Pyrogram doesn't support block_size parameter)
 CONCURRENT_DOWNLOADS = 10
