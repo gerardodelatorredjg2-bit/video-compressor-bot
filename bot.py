@@ -390,7 +390,13 @@ async def process_video(client, message: Message, quality='360p'):
         # Use simple generic name to avoid issues
         output_path = os.path.join(DOWNLOAD_DIR, "video_compressed.mp4")
         
+        last_progress_update = [0.0]
+        
         async def compression_progress(progress):
+            # Solo actualizar si ha cambiado más del 2%
+            if abs(progress - last_progress_update[0]) < 0.02:
+                return
+            
             try:
                 bar = await create_progress_bar(int(progress * 100), 100, "⚙️", "")
                 await status_msg_ref[0].edit_text(
@@ -398,8 +404,9 @@ async def process_video(client, message: Message, quality='360p'):
                     f"{bar}\n"
                     f"Progreso: {progress * 100:.1f}%"
                 )
-            except Exception as e:
-                print(f"Progress update error: {e}")
+                last_progress_update[0] = progress
+            except:
+                pass
         
         result = await compressor.compress_video(
             input_path,
@@ -432,18 +439,20 @@ async def process_video(client, message: Message, quality='360p'):
         last_upload_update = [0]
         
         async def upload_progress(current, total):
-            percentage = (current / total)
-            if percentage - last_upload_update[0] >= 0.05 or current == total:
+            percentage = (current / total) if total > 0 else 0
+            if abs(percentage - last_upload_update[0]) < 0.05 and current != total:
+                return
+                
+            try:
                 bar = await create_progress_bar(current, total, "📤", "")
-                try:
-                    await status_msg_ref[0].edit_text(
-                        f"📤 **Subiendo video comprimido...**\n\n"
-                        f"{bar}\n"
-                        f"{format_bytes(current)} / {format_bytes(total)}"
-                    )
-                    last_upload_update[0] = percentage
-                except:
-                    pass
+                await status_msg_ref[0].edit_text(
+                    f"📤 **Subiendo video comprimido...**\n\n"
+                    f"{bar}\n"
+                    f"{format_bytes(current)} / {format_bytes(total)}"
+                )
+                last_upload_update[0] = percentage
+            except:
+                pass
         
         caption = (
             f"✅ **Video comprimido exitosamente**\n\n"
@@ -466,7 +475,9 @@ async def process_video(client, message: Message, quality='360p'):
         if video_duration and video_duration > 0:
             video_kwargs['duration'] = int(video_duration)
         
+        print(f"Enviando video comprimido: {output_path}")
         await message.reply_video(**video_kwargs)
+        print(f"Video enviado exitosamente")
         
         try:
             await status_msg_ref[0].delete()
