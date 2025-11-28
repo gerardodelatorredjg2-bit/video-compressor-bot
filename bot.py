@@ -345,15 +345,35 @@ async def process_video(client, message: Message, quality='360p'):
         # Descarga con nombre simple y directo
         await message.download(file_name=input_path, progress=download_progress)
         
-        # Verificar que el archivo existe
-        max_wait = 5
+        # Verificar que el archivo existe (incluyendo .temp)
+        max_wait = 10
         wait_count = 0
-        while wait_count < max_wait and not os.path.exists(input_path):
+        temp_path = input_path + ".temp"
+        
+        while wait_count < max_wait:
+            if os.path.exists(input_path):
+                break
+            if os.path.exists(temp_path):
+                # Renombrar .temp a .mp4
+                try:
+                    os.rename(temp_path, input_path)
+                    break
+                except Exception as e:
+                    print(f"Error renombrando .temp: {e}")
+                    await asyncio.sleep(0.5)
+                    wait_count += 1
+                    continue
+            
             await asyncio.sleep(0.5)
             wait_count += 1
         
-        if not os.path.exists(input_path):
-            raise FileNotFoundError(f"Error al descargar el video. Asegúrate de que el formato sea válido.")
+        # Validar tamaño mínimo
+        if os.path.exists(input_path):
+            file_size = os.path.getsize(input_path)
+            if file_size < 1024:  # Menos de 1KB es sospechoso
+                raise FileNotFoundError(f"Archivo descargado muy pequeño ({file_size} bytes).")
+        else:
+            raise FileNotFoundError(f"Error al descargar el video. Intenta nuevamente.")
         
         if compressor.should_cancel(user_id):
             await status_msg_ref[0].edit_text("❌ **Descarga cancelada por el usuario.**")
