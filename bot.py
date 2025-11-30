@@ -166,29 +166,23 @@ async def mega_command(client, message: Message):
 async def download_from_mega(mega_url, output_path, user_id, progress_callback=None):
     def sync_download():
         try:
-            from mega import Mega
-            mega_email = os.getenv('MEGA_EMAIL')
-            mega_password = os.getenv('MEGA_PASSWORD')
+            import urllib.request
+            import shutil
             
-            if not mega_email or not mega_password:
-                return False, "Credenciales de Mega no configuradas"
+            # Descargar directo por URL (funciona para enlaces públicos)
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+            req = urllib.request.Request(mega_url, headers=headers)
             
-            # Login a Mega
-            mega = Mega()
-            m = mega.login(mega_email, mega_password)
+            with urllib.request.urlopen(req, timeout=600) as response:
+                with open(output_path, 'wb') as out_file:
+                    shutil.copyfileobj(response, out_file)
             
-            # Descargar por enlace privado
-            try:
-                m.download_url(mega_url, output_path)
-                return True, None
-            except Exception as e:
-                return False, f"Error descargando: {str(e)}"
+            return True, None
         except Exception as e:
-            print(f"Error en descarga Mega: {e}")
+            print(f"Error descargando: {e}")
             return False, str(e)
     
     try:
-        # Ejecutar descarga en thread para no bloquear
         loop = asyncio.get_event_loop()
         success, error = await loop.run_in_executor(None, sync_download)
         
