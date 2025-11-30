@@ -181,7 +181,7 @@ async def stats_command(client, message: Message):
 
 @app.on_callback_query(filters.regex("^show_"))
 async def menu_callback(client, callback_query: CallbackQuery):
-    action = callback_query.data.split("_")[1]
+    action: str = str(callback_query.data).split("_")[1]
     
     if action == "help":
         help_text = (
@@ -320,8 +320,8 @@ async def handle_video(client, message: Message):
 
 @app.on_callback_query(filters.regex("^video_quality_"))
 async def video_quality_callback(client, callback_query: CallbackQuery):
-    data_parts = callback_query.data.split("_")
-    quality = data_parts[2]
+    data_parts: list[str] = str(callback_query.data).split("_")
+    quality: str = data_parts[2]
     
     await callback_query.answer(f"✅ Procesando con {QUALITY_PRESETS[quality]['name']}")
     
