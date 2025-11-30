@@ -166,25 +166,31 @@ async def mega_command(client, message: Message):
 async def download_from_mega(mega_url, output_path, user_id, progress_callback=None):
     def sync_download():
         try:
-            headers = {'User-Agent': 'Mozilla/5.0'}
-            req = urllib.request.Request(mega_url, headers=headers)
-            with urllib.request.urlopen(req, timeout=600) as response:
-                with open(output_path, 'wb') as out_file:
-                    chunk_size = 8192
-                    while True:
-                        chunk = response.read(chunk_size)
-                        if not chunk:
-                            break
-                        out_file.write(chunk)
-            return True
+            from mega import Mega
+            mega_email = os.getenv('MEGA_EMAIL')
+            mega_password = os.getenv('MEGA_PASSWORD')
+            
+            if not mega_email or not mega_password:
+                return False, "Credenciales de Mega no configuradas"
+            
+            # Login a Mega
+            mega = Mega()
+            m = mega.login(mega_email, mega_password)
+            
+            # Descargar por enlace privado
+            try:
+                m.download_url(mega_url, output_path)
+                return True, None
+            except Exception as e:
+                return False, f"Error descargando: {str(e)}"
         except Exception as e:
-            print(f"Error descargando: {e}")
-            return False
+            print(f"Error en descarga Mega: {e}")
+            return False, str(e)
     
     try:
         # Ejecutar descarga en thread para no bloquear
         loop = asyncio.get_event_loop()
-        success = await loop.run_in_executor(None, sync_download)
+        success, error = await loop.run_in_executor(None, sync_download)
         
         if success and os.path.exists(output_path):
             size = os.path.getsize(output_path)
@@ -197,7 +203,7 @@ async def download_from_mega(mega_url, output_path, user_id, progress_callback=N
                 'size_str': format_bytes(size)
             }
         else:
-            return {'success': False, 'error': 'No se pudo descargar de Mega. Verifica que el enlace es válido y público.'}
+            return {'success': False, 'error': error or 'No se pudo descargar de Mega'}
     except Exception as e:
         print(f"Error descargando de Mega: {e}")
         return {'success': False, 'error': f"Error: {str(e)}"}
