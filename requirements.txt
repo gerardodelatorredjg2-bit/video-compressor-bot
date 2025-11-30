@@ -4,5 +4,3 @@ ffmpeg-python==0.2.0
 python-dotenv==1.0.0
 aiofiles==23.2.1
 aiohttp==3.9.1
-yt-dlp==2024.11.18
-mega.py==1.0.8
