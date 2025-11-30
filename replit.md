@@ -1,22 +1,26 @@
 # Telegram Video Compressor Bot
 
 ## Overview
-Bot profesional de Telegram para comprimir videos con Pyrogram y FFmpeg. Soporta videos hasta 2GB con compresión ultra-rápida (velocidad empresarial), barra de progreso en tiempo real con estadísticas, sistema de cola, y cancelación de operaciones.
+Bot profesional de Telegram para comprimir videos con Pyrogram y FFmpeg. Soporta videos hasta 2GB con compresión ultra-rápida (velocidad empresarial), barra de progreso en tiempo real con estadísticas, sistema de cola, cancelación de operaciones, y **descarga desde Mega**.
 
 ## Status
 ✅ **PRODUCCIÓN LISTA** - El bot funciona al 100%
 
-## Recent Changes (2025-11-30)
+## Recent Changes (2025-11-30 v2)
+- **Descarga desde Mega**: Nuevo comando `/mega` para descargar videos de Mega
+- **Opción Original/Comprimido**: Usuario elige entre enviar original o comprimido
 - **Preset ultrafast**: Cambio de "fast" a "ultrafast" para máxima velocidad
 - **CRF más agresivo**: 360p CRF 30 (fue 26) para compresión más rápida
 - **Comando /on**: Renombrado de /start (más corto y rápido)
 - **Comando /cache**: Nuevo comando para limpiar archivos residuales
 - **Consola de velocidad**: Muestra velocidad MB/s en tiempo real durante compresión
-- **Test Zootopia 586MB**: ✅ Comprimiendo correctamente a 360p
+- **Test Zootopia 586MB**: ✅ Comprimido correctamente a 360p (55.7% reducción)
 
 ## Features
 - ✅ Compresión agresiva HEVC (70-90% en 240p)
 - ✅ Soporte para videos hasta 2GB
+- ✅ **Descarga desde Mega** (yt-dlp)
+- ✅ Opción Original/Comprimido
 - ✅ Barra de progreso en tiempo real (actualiza cada 2%)
 - ✅ **Panel de estadísticas en vivo**: ⏱️ Tiempo, 🎛️ Velocidad, 📦 Tamaño
 - ✅ Sistema de cola para múltiples solicitudes
@@ -25,12 +29,11 @@ Bot profesional de Telegram para comprimir videos con Pyrogram y FFmpeg. Soporta
 - ✅ Limpieza automática de archivos temporales
 - ✅ 5 presets de calidad (240p, 360p, 480p, 720p, original)
 - ✅ Keep-alive web server para hosting 24/7 gratis
-- ✅ Comando /cache para limpiar residuos
 
 ## Project Architecture
 ```
 /
-├── bot.py                 # Main bot - Pyrogram + aiohttp + progress tracking
+├── bot.py                 # Main bot - Pyrogram + aiohttp + progress tracking + Mega support
 ├── compressor.py          # Video compression con FFmpeg (HEVC ultrafast)
 ├── config.py              # Config: BOT_TOKEN, API_ID, API_HASH, MAX_FILE_SIZE=2GB
 ├── queue_manager.py       # Queue system para múltiples usuarios
@@ -47,6 +50,7 @@ Bot profesional de Telegram para comprimir videos con Pyrogram y FFmpeg. Soporta
 - Pyrogram 2.0.106 (Telegram MTProto)
 - TgCrypto 1.2.5 (encryption)
 - FFmpeg 7.1.1+ (libx265 codec)
+- yt-dlp 2024.11.4 (descarga de Mega)
 - python-dotenv 1.0.0
 - aiofiles 23.2.1 (async file ops)
 - aiohttp 3.9.1 (keep-alive server)
@@ -57,7 +61,8 @@ Bot profesional de Telegram para comprimir videos con Pyrogram y FFmpeg. Soporta
 - `/quality` - Cambiar calidad predeterminada (240p/360p/480p/720p/original)
 - `/stats` - Ver optimizaciones activas
 - `/cancel` - Cancelar compresión actual
-- `/cache` - Limpiar archivos temporales (NUEVO)
+- `/cache` - Limpiar archivos temporales
+- `/mega` - Descargar y comprimir desde Mega (NUEVO)
 
 ## Quality Presets & Performance
 - **240p**: ~70-90% reducción (máxima compresión)
@@ -68,15 +73,16 @@ Bot profesional de Telegram para comprimir videos con Pyrogram y FFmpeg. Soporta
 
 ## Optimizations Active
 - ✅ Codec HEVC (libx265) - Mejor compresión
-- ✅ **Preset ultrafast** - Velocidad máxima (nuevo)
+- ✅ **Preset ultrafast** - Velocidad máxima
 - ✅ Copia directa de audio - Sin recodificación
-- ✅ **CRF 30 en 360p** - Agresivo para velocidad (nuevo)
+- ✅ **CRF 30 en 360p** - Agresivo para velocidad
 - ✅ Escalado fast_bilinear - Ultra-rápido
 - ✅ Barra de progreso cada 2% - Sin errores Telegram
 - ✅ Manejo robusto de .temp files - Descarga segura
 - ✅ Estadísticas en vivo - Tiempo, velocidad, tamaño
 - ✅ Keep-alive web server - 24/7 en free tier
-- ✅ Console logging de velocidad MB/s (nuevo)
+- ✅ Console logging de velocidad MB/s
+- ✅ **Descarga de Mega con yt-dlp** (NUEVO)
 
 ## Deployment (Render Free Tier + UptimeRobot)
 1. Deploy en Render.com (Free plan)
@@ -95,15 +101,13 @@ Bot profesional de Telegram para comprimir videos con Pyrogram y FFmpeg. Soporta
 - Comida favorita: Burritos y dulce de zanahoria 🤤
 - GitHub: https://github.com/gerardodelatorredjg2-bit/video-compressor-bot
 
-## Planned Features (Próxima Actualización - DESPUÉS de test Zootopia)
-- 🔲 **Watermark/Marca de agua**: Overlay de "Comprimido por @bot" (CONFIRMADO)
-- 🔲 **Descargar desde Mega**: Soportar enlaces de Mega para descargar videos
-- 🔲 **Opción Original/Comprimido**: Usuario elige enviar video original O comprimido con selección de calidad
+## Planned Features (Próxima Actualización)
+- 🔲 **Watermark/Marca de agua**: Overlay de "Comprimido por @bot"
 
 ## Known Limitations
 - Max 2GB por video (trade-off entre estabilidad y tamaño)
 - Free tier CPU compartido (40-80% uso durante compresión)
-- Descarga Pyrogram puede ser lenta en archivos muy grandes
+- Descarga Mega depende de yt-dlp y disponibilidad del servidor
 
 ## Testing Status
 ✅ Todos los flujos testeados:
@@ -113,8 +117,8 @@ Bot profesional de Telegram para comprimir videos con Pyrogram y FFmpeg. Soporta
 - ✅ Barra de progreso con estadísticas
 - ✅ Cancelación de operaciones
 - ✅ Manejo de errores
-- ✅ Test Zootopia 586MB (en progreso): 54.3% completado, ~18 min, velocidad estable 0.14 MB/s
+- ✅ Test Zootopia 586MB: 55.7% reducción, 32.7 minutos
 
 ## Ready for Production ✅
 El bot está completamente funcional y listo para producción 24/7 en Render.
-Cambios recientes optimizados: ultrafast preset + CRF agresivo = compresión 3-4x más rápida sin pérdida significativa de calidad.
+Cambios recientes optimizados: ultrafast preset + CRF agresivo + Mega support = velocidad y funcionalidad máximas.

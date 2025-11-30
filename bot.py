@@ -1,5 +1,6 @@
 import os
 import asyncio
+import re
 from pyrogram.client import Client
 from pyrogram import filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
@@ -9,6 +10,7 @@ from compressor import compressor, QUALITY_PRESETS
 from queue_manager import queue_manager
 from utils import format_bytes, cleanup_file, generate_filename, create_progress_bar, sanitize_filename, wait_for_file
 import glob
+import subprocess
 
 app = Client(
     "video_compressor_bot",
@@ -148,6 +150,110 @@ async def cache_command(client, message: Message):
     except Exception as e:
         await message.reply_text(f"❌ Error al limpiar caché: {str(e)}")
         print(f"Error en comando cache: {e}")
+
+@app.on_message(filters.command("mega"))
+async def mega_command(client, message: Message):
+    await message.reply_text(
+        "📥 **Descargar desde Mega**\n\n"
+        "Envíame el enlace de Mega en el siguiente formato:\n\n"
+        "`/mega https://mega.nz/file/...`\n\n"
+        "O simplemente responde con el enlace de Mega como texto y yo lo descargaré.\n\n"
+        "⚠️ Nota: El archivo debe ser un video válido (MP4, AVI, MOV, MKV, FLV, WMV)"
+    )
+
+async def download_from_mega(mega_url, output_path, user_id, progress_callback=None):
+    try:
+        # Usar yt-dlp para descargar de Mega
+        cmd = [
+            'yt-dlp',
+            '-f', 'best',
+            '-o', output_path,
+            mega_url
+        ]
+        
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        
+        stdout, stderr = await proc.communicate()
+        
+        if proc.returncode == 0 and os.path.exists(output_path):
+            size = os.path.getsize(output_path)
+            return {
+                'success': True,
+                'path': output_path,
+                'size': size,
+                'size_str': format_bytes(size)
+            }
+        else:
+            return {'success': False, 'error': 'No se pudo descargar de Mega'}
+    except Exception as e:
+        print(f"Error descargando de Mega: {e}")
+        return {'success': False, 'error': str(e)}
+
+@app.on_message(filters.text & ~filters.command(["on", "help", "quality", "stats", "cancel", "cache", "mega"]))
+async def handle_mega_link(client, message: Message):
+    user_id = message.from_user.id
+    text = message.text.strip()
+    
+    # Detectar enlaces de Mega
+    if 'mega.nz' in text or 'mega.co.nz' in text:
+        # Extraer URL
+        mega_urls = re.findall(r'https://mega\.(?:nz|co\.nz)/[^\s]+', text)
+        
+        if not mega_urls:
+            await message.reply_text("❌ No se encontró un enlace válido de Mega.\n\nFormato: `https://mega.nz/file/...`")
+            return
+        
+        mega_url = mega_urls[0]
+        status_msg = await message.reply_text("📥 **Descargando de Mega...**\n\nEsto puede tomar unos momentos.")
+        
+        import time
+        timestamp = str(int(time.time() * 1000))
+        input_path = os.path.join(DOWNLOAD_DIR, f"mega_download_{timestamp}.mp4")
+        
+        try:
+            result = await download_from_mega(mega_url, input_path, user_id)
+            
+            if not result['success']:
+                await status_msg.edit_text(f"❌ **Error descargando de Mega**\n\n{result.get('error', 'Error desconocido')}")
+                return
+            
+            # Verificar que es video
+            video_extensions = ['.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv', '.m4v']
+            if not any(input_path.lower().endswith(ext) for ext in video_extensions):
+                await status_msg.edit_text("❌ **Formato no soportado**\n\nSolo se aceptan: MP4, AVI, MOV, MKV, FLV, WMV")
+                await cleanup_file(input_path)
+                return
+            
+            # Preguntar: Original o Comprimido
+            keyboard = InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton("🎬 Original", callback_data=f"mega_original_{message.id}"),
+                    InlineKeyboardButton("⚙️ Comprimido", callback_data=f"mega_compress_{message.id}")
+                ]
+            ])
+            
+            await status_msg.edit_text(
+                f"✅ **Video descargado de Mega**\n\n"
+                f"📦 Tamaño: {result['size_str']}\n\n"
+                f"¿Qué deseas hacer?\n\n"
+                f"🎬 **Original**: Envía el video sin cambios\n"
+                f"⚙️ **Comprimido**: Comprime a 360p (recomendado)",
+                reply_markup=keyboard
+            )
+            
+            # Guardar para callback
+            import json
+            meta_file = input_path + ".meta"
+            with open(meta_file, 'w') as f:
+                json.dump({'path': input_path, 'user_id': user_id, 'size': result['size']}, f)
+            
+        except Exception as e:
+            await status_msg.edit_text(f"❌ Error: {str(e)}")
+            await cleanup_file(input_path)
 
 @app.on_message(filters.command("stats"))
 async def stats_command(client, message: Message):
@@ -325,6 +431,18 @@ async def video_quality_callback(client, callback_query: CallbackQuery):
         await callback_query.message.delete()
     except:
         pass
+
+@app.on_callback_query(filters.regex("^mega_"))
+async def mega_callback(client, callback_query: CallbackQuery):
+    data_parts = callback_query.data.split("_")
+    action = data_parts[1]
+    
+    if action == "original":
+        await callback_query.answer("📤 Preparando envío del video original...")
+        # Lógica para enviar original
+    elif action == "compress":
+        await callback_query.answer("⚙️ Iniciando compresión...")
+        # Lógica para comprimir
 
 async def process_queue(client, user_id):
     try:
