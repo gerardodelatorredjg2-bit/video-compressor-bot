@@ -8,36 +8,36 @@ QUALITY_PRESETS = {
     '240p': {
         'codec': 'libx265',
         'resolution': '426:240',
-        'bitrate': '200k',
-        'crf': 38,
+        'bitrate': '250k',
+        'crf': 28,
         'name': '240p (Máxima compresión)'
     },
     '360p': {
         'codec': 'libx265',
         'resolution': '640:360',
-        'bitrate': '350k',
-        'crf': 36,
+        'bitrate': '500k',
+        'crf': 26,
         'name': '360p (Alta compresión) ⭐'
     },
     '480p': {
         'codec': 'libx265',
         'resolution': '854:480',
-        'bitrate': '600k',
-        'crf': 34,
+        'bitrate': '900k',
+        'crf': 24,
         'name': '480p (Compresión media)'
     },
     '720p': {
         'codec': 'libx265',
         'resolution': '1280:720',
-        'bitrate': '1200k',
-        'crf': 32,
+        'bitrate': '1800k',
+        'crf': 22,
         'name': '720p (Buena calidad)'
     },
     'original': {
         'codec': 'libx265',
         'resolution': None,
         'bitrate': None,
-        'crf': 36,
+        'crf': 26,
         'name': 'Original (Máxima velocidad)'
     }
 }
@@ -88,17 +88,17 @@ class VideoCompressor:
             
             preset = QUALITY_PRESETS.get(quality, QUALITY_PRESETS['360p'])
             
-            # Build FFmpeg command for VELOCIDAD EMPRESARIAL
+            # Build FFmpeg command - BALANCE PERFECTO entre velocidad y estabilidad
             cmd = [
                 'ffmpeg',
                 '-i', input_path,
                 '-vcodec', preset['codec'],
                 '-crf', str(preset['crf']),
-                '-preset', 'veryfast',
+                '-preset', 'fast',
                 '-acodec', 'copy',
                 '-threads', '0',
-                '-g', '100',
-                '-x265-params', 'log-level=error',
+                '-g', '60',
+                '-x265-params', 'log-level=error:aq-mode=2',
             ]
             
             if preset['resolution']:
@@ -140,7 +140,7 @@ class VideoCompressor:
                     return None
                 
                 try:
-                    line = await asyncio.wait_for(proc.stdout.readline(), timeout=120)
+                    line = await asyncio.wait_for(proc.stdout.readline(), timeout=300)
                 except asyncio.TimeoutError:
                     print("Compression timeout - killing process")
                     proc.kill()
