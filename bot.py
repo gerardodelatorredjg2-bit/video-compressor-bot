@@ -157,10 +157,14 @@ async def cache_command(client, message: Message):
 async def mega_command(client, message: Message):
     await message.reply_text(
         "📥 **Descargar desde Mega**\n\n"
-        "Envíame el enlace de Mega en el siguiente formato:\n\n"
-        "`/mega https://mega.nz/file/...`\n\n"
-        "O simplemente responde con el enlace de Mega como texto y yo lo descargaré.\n\n"
-        "⚠️ Nota: El archivo debe ser un video válido (MP4, AVI, MOV, MKV, FLV, WMV)"
+        "**Para descargar tu video de Mega:**\n\n"
+        "1. Abre tu archivo en Mega\n"
+        "2. Click en **⋮** (3 puntos) → **Obtener enlace**\n"
+        "3. Activa **Permitir descargas**\n"
+        "4. Copia el enlace generado\n"
+        "5. Envíamelo aquí\n\n"
+        "Luego elige: **Original** o **Comprimido (360p)**\n\n"
+        "⚠️ El enlace debe tener permiso de descarga pública"
     )
 
 async def download_from_mega(mega_url, output_path, user_id, progress_callback=None):
