@@ -163,11 +163,11 @@ async def mega_command(client, message: Message):
 
 async def download_from_mega(mega_url, output_path, user_id, progress_callback=None):
     try:
-        # Usar yt-dlp para descargar de Mega
+        # Usar wget para descargar de Mega
         cmd = [
-            'yt-dlp',
-            '-f', 'best',
-            '-o', output_path,
+            'wget',
+            '-q',
+            '-O', output_path,
             mega_url
         ]
         
@@ -177,10 +177,17 @@ async def download_from_mega(mega_url, output_path, user_id, progress_callback=N
             stderr=asyncio.subprocess.PIPE
         )
         
-        stdout, stderr = await proc.communicate()
+        # Esperar con timeout
+        try:
+            await asyncio.wait_for(proc.wait(), timeout=600)
+        except asyncio.TimeoutError:
+            proc.kill()
+            return {'success': False, 'error': 'Timeout descargando de Mega (archivo muy grande)'}
         
         if proc.returncode == 0 and os.path.exists(output_path):
             size = os.path.getsize(output_path)
+            if size < 1000:  # Archivo muy pequeño = error
+                return {'success': False, 'error': 'El archivo descargado es muy pequeño o inválido'}
             return {
                 'success': True,
                 'path': output_path,
@@ -188,7 +195,8 @@ async def download_from_mega(mega_url, output_path, user_id, progress_callback=N
                 'size_str': format_bytes(size)
             }
         else:
-            return {'success': False, 'error': 'No se pudo descargar de Mega'}
+            err_msg = "No se pudo descargar de Mega. Verifica que el enlace es público."
+            return {'success': False, 'error': err_msg}
     except Exception as e:
         print(f"Error descargando de Mega: {e}")
         return {'success': False, 'error': str(e)}
