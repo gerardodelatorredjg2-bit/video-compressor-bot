@@ -168,24 +168,41 @@ async def mega_command(client, message: Message):
 async def download_from_mega(mega_url, output_path, user_id, progress_callback=None):
     def sync_download():
         try:
-            import subprocess
+            from mega import Mega
             
-            # Usar yt-dlp para descargar de Mega (soporta enlaces privados y públicos)
-            cmd = [
-                'yt-dlp',
-                '--quiet',
-                '-o', output_path,
-                mega_url
-            ]
+            mega_email = os.getenv('MEGA_EMAIL')
+            mega_password = os.getenv('MEGA_PASSWORD')
             
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=1200)
+            if not mega_email or not mega_password:
+                return False, "Credenciales de Mega no configuradas"
             
-            if result.returncode != 0:
-                return False, f"yt-dlp error: {result.stderr}"
+            # Extraer el ID del archivo de la URL
+            # Formato: https://mega.nz/file/ID#KEY o https://mega.co.nz/file/ID#KEY
+            import re
+            match = re.search(r'/file/([a-zA-Z0-9_-]+)(?:#([a-zA-Z0-9_-]+))?', mega_url)
+            if not match:
+                return False, "Formato de URL de Mega inválido"
+            
+            file_id = match.group(1)
+            file_key = match.group(2)
+            
+            # Login a Mega
+            mega = Mega()
+            m = mega.login(mega_email, mega_password)
+            
+            # Construir la URL de descarga con el ID
+            download_url = f"https://mega.nz/file/{file_id}"
+            if file_key:
+                download_url += f"#{file_key}"
+            
+            # Descargar archivo
+            m.download_url(download_url, output_path)
             
             return True, None
         except Exception as e:
-            print(f"Error descargando: {e}")
+            print(f"Error en Mega login/download: {e}")
+            import traceback
+            traceback.print_exc()
             return False, str(e)
     
     try:
