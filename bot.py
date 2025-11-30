@@ -1,6 +1,8 @@
 import os
 import asyncio
 import re
+import urllib.request
+import urllib.error
 from pyrogram.client import Client
 from pyrogram import filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
@@ -162,31 +164,31 @@ async def mega_command(client, message: Message):
     )
 
 async def download_from_mega(mega_url, output_path, user_id, progress_callback=None):
-    try:
-        # Usar wget para descargar de Mega
-        cmd = [
-            'wget',
-            '-q',
-            '-O', output_path,
-            mega_url
-        ]
-        
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-        
-        # Esperar con timeout
+    def sync_download():
         try:
-            await asyncio.wait_for(proc.wait(), timeout=600)
-        except asyncio.TimeoutError:
-            proc.kill()
-            return {'success': False, 'error': 'Timeout descargando de Mega (archivo muy grande)'}
+            headers = {'User-Agent': 'Mozilla/5.0'}
+            req = urllib.request.Request(mega_url, headers=headers)
+            with urllib.request.urlopen(req, timeout=600) as response:
+                with open(output_path, 'wb') as out_file:
+                    chunk_size = 8192
+                    while True:
+                        chunk = response.read(chunk_size)
+                        if not chunk:
+                            break
+                        out_file.write(chunk)
+            return True
+        except Exception as e:
+            print(f"Error descargando: {e}")
+            return False
+    
+    try:
+        # Ejecutar descarga en thread para no bloquear
+        loop = asyncio.get_event_loop()
+        success = await loop.run_in_executor(None, sync_download)
         
-        if proc.returncode == 0 and os.path.exists(output_path):
+        if success and os.path.exists(output_path):
             size = os.path.getsize(output_path)
-            if size < 1000:  # Archivo muy pequeño = error
+            if size < 1000:
                 return {'success': False, 'error': 'El archivo descargado es muy pequeño o inválido'}
             return {
                 'success': True,
@@ -195,11 +197,10 @@ async def download_from_mega(mega_url, output_path, user_id, progress_callback=N
                 'size_str': format_bytes(size)
             }
         else:
-            err_msg = "No se pudo descargar de Mega. Verifica que el enlace es público."
-            return {'success': False, 'error': err_msg}
+            return {'success': False, 'error': 'No se pudo descargar de Mega. Verifica que el enlace es válido y público.'}
     except Exception as e:
         print(f"Error descargando de Mega: {e}")
-        return {'success': False, 'error': str(e)}
+        return {'success': False, 'error': f"Error: {str(e)}"}
 
 @app.on_message(filters.text & ~filters.command(["on", "help", "quality", "stats", "cancel", "cache", "mega"]))
 async def handle_mega_link(client, message: Message):
