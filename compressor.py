@@ -164,12 +164,26 @@ class VideoCompressor:
                             current_time = asyncio.get_event_loop().time()
                             elapsed = int(current_time - start_time)
                             current_size = get_file_size(output_path) if os.path.exists(output_path) else 0
+                            
+                            # Calcular velocidad de compresión
+                            speed_mbs = (current_size / (1024 * 1024)) / max(elapsed, 1) if elapsed > 0 else 0
+                            
+                            # Mostrar en consola
+                            print(f"🎬 Comprimiendo... {progress*100:.1f}% | ⏱️ {elapsed}s | 🎛️ {speed_mbs:.2f} MB/s | 📦 {format_bytes(current_size)}")
+                            
                             await progress_callback(progress, elapsed, current_size)
                             last_update = progress
                     except:
                         pass
             
             await proc.wait()
+            
+            # Log final de compresión
+            final_time = asyncio.get_event_loop().time() - start_time
+            if os.path.exists(output_path):
+                final_size = get_file_size(output_path)
+                final_speed = (final_size / (1024 * 1024)) / max(final_time, 1)
+                print(f"✅ Compresión completada | ⏱️ {int(final_time)}s | 🎛️ {final_speed:.2f} MB/s | 📦 {format_bytes(final_size)}")
             
             if proc.returncode == 0 and os.path.exists(output_path):
                 out_duration = 0
