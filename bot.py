@@ -157,29 +157,31 @@ async def cache_command(client, message: Message):
 async def mega_command(client, message: Message):
     await message.reply_text(
         "📥 **Descargar desde Mega**\n\n"
-        "**Para descargar tu video de Mega:**\n\n"
-        "1. Abre tu archivo en Mega\n"
-        "2. Click en **⋮** (3 puntos) → **Obtener enlace**\n"
-        "3. Activa **Permitir descargas**\n"
-        "4. Copia el enlace generado\n"
-        "5. Envíamelo aquí\n\n"
-        "Luego elige: **Original** o **Comprimido (360p)**\n\n"
-        "⚠️ El enlace debe tener permiso de descarga pública"
+        "Simplemente envíame el enlace de Mega (privado o público):\n\n"
+        "`https://mega.nz/file/...`\n\n"
+        "Luego elige:\n"
+        "🎬 **Original** - Sin cambios\n"
+        "⚙️ **Comprimido** - 360p (recomendado)\n\n"
+        "El bot descargará tu video y aplicará la compresión."
     )
 
 async def download_from_mega(mega_url, output_path, user_id, progress_callback=None):
     def sync_download():
         try:
-            import urllib.request
-            import shutil
+            import subprocess
             
-            # Descargar directo por URL (funciona para enlaces públicos)
-            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-            req = urllib.request.Request(mega_url, headers=headers)
+            # Usar yt-dlp para descargar de Mega (soporta enlaces privados y públicos)
+            cmd = [
+                'yt-dlp',
+                '--quiet',
+                '-o', output_path,
+                mega_url
+            ]
             
-            with urllib.request.urlopen(req, timeout=600) as response:
-                with open(output_path, 'wb') as out_file:
-                    shutil.copyfileobj(response, out_file)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=1200)
+            
+            if result.returncode != 0:
+                return False, f"yt-dlp error: {result.stderr}"
             
             return True, None
         except Exception as e:
