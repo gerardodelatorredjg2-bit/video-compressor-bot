@@ -9,35 +9,35 @@ QUALITY_PRESETS = {
         'codec': 'libx265',
         'resolution': '426:240',
         'bitrate': '250k',
-        'crf': 28,
+        'crf': 32,
         'name': '240p (Máxima compresión)'
     },
     '360p': {
         'codec': 'libx265',
         'resolution': '640:360',
         'bitrate': '500k',
-        'crf': 26,
+        'crf': 30,
         'name': '360p (Alta compresión) ⭐'
     },
     '480p': {
         'codec': 'libx265',
         'resolution': '854:480',
         'bitrate': '900k',
-        'crf': 24,
+        'crf': 26,
         'name': '480p (Compresión media)'
     },
     '720p': {
         'codec': 'libx265',
         'resolution': '1280:720',
         'bitrate': '1800k',
-        'crf': 22,
+        'crf': 24,
         'name': '720p (Buena calidad)'
     },
     'original': {
         'codec': 'libx265',
         'resolution': None,
         'bitrate': None,
-        'crf': 26,
+        'crf': 30,
         'name': 'Original (Máxima velocidad)'
     }
 }
@@ -88,17 +88,17 @@ class VideoCompressor:
             
             preset = QUALITY_PRESETS.get(quality, QUALITY_PRESETS['360p'])
             
-            # Build FFmpeg command - BALANCE PERFECTO entre velocidad y estabilidad
+            # Build FFmpeg command - VELOCIDAD MÁXIMA con calidad aceptable
             cmd = [
                 'ffmpeg',
                 '-i', input_path,
                 '-vcodec', preset['codec'],
                 '-crf', str(preset['crf']),
-                '-preset', 'fast',
+                '-preset', 'ultrafast',
                 '-acodec', 'copy',
                 '-threads', '0',
-                '-g', '60',
-                '-x265-params', 'log-level=error:aq-mode=2',
+                '-g', '30',
+                '-x265-params', 'log-level=error:aq-mode=0',
             ]
             
             if preset['resolution']:

@@ -8,6 +8,7 @@ from config import BOT_TOKEN, API_ID, API_HASH, DOWNLOAD_DIR
 from compressor import compressor, QUALITY_PRESETS
 from queue_manager import queue_manager
 from utils import format_bytes, cleanup_file, generate_filename, create_progress_bar, sanitize_filename, wait_for_file
+import glob
 
 app = Client(
     "video_compressor_bot",
@@ -20,7 +21,7 @@ app = Client(
 )
 
 
-@app.on_message(filters.command("start"))
+@app.on_message(filters.command("on"))
 async def start_command(client, message: Message):
     welcome_text = (
         "🎥 **Bienvenido al Compresor de Video**\n\n"
@@ -115,6 +116,38 @@ async def cancel_command(client, message: Message):
             await message.reply_text("❌ **Cola limpiada**\n\nSe han eliminado todos los videos pendientes.")
         else:
             await message.reply_text("ℹ️ No hay ninguna operación en curso para cancelar.")
+
+@app.on_message(filters.command("cache"))
+async def cache_command(client, message: Message):
+    try:
+        import glob
+        import os
+        
+        # Limpiar descargas
+        download_files = glob.glob(os.path.join(DOWNLOAD_DIR, "*"))
+        deleted_count = 0
+        total_size = 0
+        
+        for file in download_files:
+            try:
+                size = os.path.getsize(file)
+                total_size += size
+                os.remove(file)
+                deleted_count += 1
+            except Exception as e:
+                print(f"Error deleting {file}: {e}")
+        
+        size_str = format_bytes(total_size)
+        await message.reply_text(
+            f"🧹 **Caché limpiado**\n\n"
+            f"✅ Archivos eliminados: {deleted_count}\n"
+            f"📦 Espacio liberado: {size_str}\n\n"
+            f"El directorio temporal ha sido limpiado."
+        )
+        print(f"🧹 Caché limpiado: {deleted_count} archivos, {size_str} liberados")
+    except Exception as e:
+        await message.reply_text(f"❌ Error al limpiar caché: {str(e)}")
+        print(f"Error en comando cache: {e}")
 
 @app.on_message(filters.command("stats"))
 async def stats_command(client, message: Message):
