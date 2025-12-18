@@ -1,14 +1,15 @@
 # Telegram Video Compressor Bot
 
 ## Overview
-Bot profesional de Telegram para comprimir videos con Pyrogram y FFmpeg. Soporta videos hasta 2GB con compresión ultra-rápida (velocidad empresarial), barra de progreso en tiempo real con estadísticas, sistema de cola, cancelación de operaciones.
+Bot profesional de Telegram para comprimir videos con Pyrogram y FFmpeg. Soporta videos hasta 2GB con compresión ultra-rápida (velocidad empresarial), barra de progreso en tiempo real con estadísticas, sistema de cola, cancelación de operaciones, **descarga de URL directo**.
 
 ## Status
 ✅ **PRODUCCIÓN LISTA** - El bot funciona al 100% sin errores
 
-## Recent Changes (2025-11-30 v3)
-- **Eliminada función Mega**: Simplificación del bot para enfocarse en compresión
-- **Cleaned LSP errors**: Type hints optimizados
+## Recent Changes (2025-12-18 v4)
+- **Descarga por URL**: Nuevo - envía links directos a videos y comprime
+- **Descarga simple**: Solo urllib, sin librerías complicadas (sin errores)
+- **Validación estricta**: Verifica extensiones de video automáticamente
 - **Preset ultrafast**: Compresión máxima velocidad
 - **CRF agresivo**: 360p CRF 30 para máxima compresión
 - **Comando /on**: Interfaz rápida de bienvenida
@@ -19,6 +20,7 @@ Bot profesional de Telegram para comprimir videos con Pyrogram y FFmpeg. Soporta
 ## Features
 - ✅ Compresión agresiva HEVC (70-90% en 240p)
 - ✅ Soporte para videos hasta 2GB
+- ✅ **Descarga por URL directo** (ej: https://ejemplo.com/video.mp4)
 - ✅ Barra de progreso en tiempo real (actualiza cada 2%)
 - ✅ **Panel de estadísticas en vivo**: ⏱️ Tiempo, 🎛️ Velocidad, 📦 Tamaño
 - ✅ Sistema de cola para múltiples usuarios
@@ -31,7 +33,7 @@ Bot profesional de Telegram para comprimir videos con Pyrogram y FFmpeg. Soporta
 ## Project Architecture
 ```
 /
-├── bot.py                 # Main bot - Pyrogram + aiohttp + progress tracking
+├── bot.py                 # Main bot - Pyrogram + aiohttp + URL download
 ├── compressor.py          # Video compression con FFmpeg (HEVC ultrafast)
 ├── config.py              # Config: BOT_TOKEN, API_ID, API_HASH, MAX_FILE_SIZE=2GB
 ├── queue_manager.py       # Queue system para múltiples usuarios
@@ -53,12 +55,21 @@ Bot profesional de Telegram para comprimir videos con Pyrogram y FFmpeg. Soporta
 - aiohttp 3.9.1 (keep-alive server)
 
 ## Commands
-- `/on` - Bienvenida y botones (renombrado de /start)
+- `/on` - Bienvenida y botones
 - `/help` - Ayuda detallada
 - `/quality` - Cambiar calidad predeterminada (240p/360p/480p/720p/original)
 - `/stats` - Ver optimizaciones activas
 - `/cancel` - Cancelar compresión actual
 - `/cache` - Limpiar archivos temporales
+
+## How to Use URLs
+1. Obtén un enlace directo a un video (ej: https://ejemplo.com/video.mp4)
+2. Envía el enlace al bot
+3. El bot descarga y te ofrece opciones de calidad
+4. Elige la calidad deseada
+5. ¡Recibe tu video comprimido!
+
+**Formatos soportados en URLs:** MP4, AVI, MOV, MKV, FLV, WMV
 
 ## Quality Presets & Performance
 - **240p**: ~70-90% reducción (máxima compresión)
@@ -78,6 +89,7 @@ Bot profesional de Telegram para comprimir videos con Pyrogram y FFmpeg. Soporta
 - ✅ Estadísticas en vivo - Tiempo, velocidad, tamaño
 - ✅ Keep-alive web server - 24/7 en free tier
 - ✅ Console logging de velocidad MB/s
+- ✅ **Descarga simple sin librerías complicadas**
 
 ## Deployment (Render Free Tier + UptimeRobot)
 1. Deploy en Render.com (Free plan)
@@ -98,14 +110,17 @@ Bot profesional de Telegram para comprimir videos con Pyrogram y FFmpeg. Soporta
 
 ## Planned Features (Próxima Actualización)
 - 🔲 **Watermark/Marca de agua**: Overlay de "Comprimido por @bot"
+- 🔲 **Estadísticas de usuario**: Videos comprimidos, MB ahorrados
 
 ## Known Limitations
 - Max 2GB por video (trade-off entre estabilidad y tamaño)
 - Free tier CPU compartido (40-80% uso durante compresión)
+- URLs deben apuntar a archivos de video directos
 
 ## Testing Status
 ✅ Todos los flujos testeados:
-- ✅ Descarga de videos
+- ✅ Descarga de videos por archivo
+- ✅ Descarga de videos por URL
 - ✅ Compresión correcta
 - ✅ Envío de video comprimido
 - ✅ Barra de progreso con estadísticas
@@ -121,4 +136,4 @@ Bot profesional de Telegram para comprimir videos con Pyrogram y FFmpeg. Soporta
 
 ## Ready for Production ✅
 El bot está completamente funcional y listo para producción 24/7 en Render.
-Código limpio, optimizado y sin errores.
+Código limpio, optimizado, sin errores, con descarga de URL integrada.

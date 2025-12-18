@@ -153,6 +153,95 @@ async def cache_command(client, message: Message):
         await message.reply_text(f"❌ Error al limpiar caché: {str(e)}")
         print(f"Error en comando cache: {e}")
 
+@app.on_message(filters.text & filters.regex(r'^https?://'))
+async def handle_url_download(client, message: Message):
+    user_id = message.from_user.id
+    url: str = message.text.strip()
+    
+    # Validar que sea una URL válida
+    if not url.startswith(('http://', 'https://')):
+        await message.reply_text("⚠️ Por favor, envía una URL válida que comience con http:// o https://")
+        return
+    
+    # Validar que tenga extensión de video
+    video_extensions = ['.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv', '.m4v', '.webm']
+    if not any(url.lower().endswith(ext) for ext in video_extensions):
+        await message.reply_text(
+            "⚠️ **URL no válida**\n\n"
+            "La URL debe apuntar a un archivo de video directo.\n"
+            "Formatos soportados: MP4, AVI, MOV, MKV, FLV, WMV\n\n"
+            "Ejemplo: `https://ejemplo.com/video.mp4`"
+        )
+        return
+    
+    status_msg = await message.reply_text("📥 **Descargando video...**\n\nEsto puede tomar unos momentos.")
+    
+    import time
+    timestamp = str(int(time.time() * 1000))
+    input_path = os.path.join(DOWNLOAD_DIR, f"url_download_{timestamp}.mp4")
+    
+    try:
+        # Descargar con urllib simple
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+        req = urllib.request.Request(url, headers=headers)
+        
+        def download_sync():
+            try:
+                with urllib.request.urlopen(req, timeout=300) as response:
+                    with open(input_path, 'wb') as out_file:
+                        out_file.write(response.read())
+                return True, None
+            except Exception as e:
+                return False, str(e)
+        
+        loop = asyncio.get_event_loop()
+        success, error = await loop.run_in_executor(None, download_sync)
+        
+        if not success:
+            await status_msg.edit_text(f"❌ **Error descargando**\n\n{error}")
+            return
+        
+        if not os.path.exists(input_path):
+            await status_msg.edit_text("❌ **Error**: El archivo no se descargó correctamente")
+            return
+        
+        size = os.path.getsize(input_path)
+        if size < 1000:
+            await status_msg.edit_text("❌ **Error**: El archivo descargado es muy pequeño")
+            await cleanup_file(input_path)
+            return
+        
+        # Mostrar opciones de calidad
+        quality = compressor.get_user_quality(user_id)
+        keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("240p 🔥", callback_data=f"url_quality_240p_{message.id}"),
+                InlineKeyboardButton("360p ⭐", callback_data=f"url_quality_360p_{message.id}")
+            ],
+            [
+                InlineKeyboardButton("480p 📺", callback_data=f"url_quality_480p_{message.id}"),
+                InlineKeyboardButton("720p 🎬", callback_data=f"url_quality_720p_{message.id}")
+            ],
+            [InlineKeyboardButton("Original 📹", callback_data=f"url_quality_original_{message.id}")]
+        ])
+        
+        await status_msg.edit_text(
+            f"✅ **Video descargado**\n\n"
+            f"📦 Tamaño: {format_bytes(size)}\n\n"
+            f"Selecciona la calidad:",
+            reply_markup=keyboard
+        )
+        
+        # Guardar info para procesamiento
+        import json
+        meta_file = input_path + ".meta"
+        with open(meta_file, 'w') as f:
+            json.dump({'path': input_path, 'user_id': user_id, 'size': size, 'type': 'url'}, f)
+        
+    except Exception as e:
+        await status_msg.edit_text(f"❌ Error: {str(e)}")
+        await cleanup_file(input_path)
+
 @app.on_message(filters.command("stats"))
 async def stats_command(client, message: Message):
     stats_text = (
@@ -330,6 +419,57 @@ async def video_quality_callback(client, callback_query: CallbackQuery):
     except:
         pass
 
+@app.on_callback_query(filters.regex("^url_quality_"))
+async def url_quality_callback(client, callback_query: CallbackQuery):
+    data_parts: list[str] = str(callback_query.data).split("_")
+    quality: str = data_parts[2]
+    message_id = int(data_parts[3])
+    
+    await callback_query.answer(f"⚙️ Comprimiendo a {QUALITY_PRESETS[quality]['name']}...")
+    
+    try:
+        await callback_query.message.delete()
+    except:
+        pass
+    
+    # Encontrar archivo .meta correspondiente
+    import json
+    import glob as glob_module
+    
+    meta_files = glob_module.glob(os.path.join(DOWNLOAD_DIR, "*.meta"))
+    input_path = None
+    
+    for meta_file in meta_files:
+        try:
+            with open(meta_file, 'r') as f:
+                data = json.load(f)
+                if data.get('type') == 'url' and os.path.exists(data['path']):
+                    input_path = data['path']
+                    break
+        except:
+            continue
+    
+    if not input_path or not os.path.exists(input_path):
+        await callback_query.message.reply_text("❌ Error: No se encontró el archivo descargado")
+        return
+    
+    # Procesar el video
+    user_id = callback_query.from_user.id
+    
+    # Crear mensaje temporal
+    status_msg = await callback_query.message.reply_text(
+        f"📥 **Procesando...**\n\n"
+        f"Calidad: **{QUALITY_PRESETS[quality]['name']}**\n"
+        f"Esto puede tomar un tiempo..."
+    )
+    
+    # Agregar a cola
+    await queue_manager.add_to_queue(user_id, (status_msg, quality, input_path, 'url'))
+    
+    if not queue_manager.is_processing(user_id):
+        queue_manager.mark_processing(user_id, True)
+        asyncio.create_task(process_queue(client, user_id))
+
 async def process_queue(client, user_id):
     try:
         while True:
@@ -338,10 +478,91 @@ async def process_queue(client, user_id):
             if task_data is None:
                 break
             
-            message, quality = task_data
-            await process_video(client, message, quality)
+            # Detectar si es video normal (2 elementos) o URL (4 elementos)
+            if len(task_data) == 2:
+                message, quality = task_data
+                await process_video(client, message, quality)
+            elif len(task_data) == 4:
+                status_msg, quality, input_path, task_type = task_data
+                if task_type == 'url':
+                    await process_url_video(client, status_msg, quality, input_path, user_id)
     finally:
         queue_manager.mark_processing(user_id, False)
+
+async def process_url_video(client, status_msg, quality, input_path, user_id):
+    output_path = None
+    
+    try:
+        # Ya tenemos el archivo, solo comprimir
+        import time
+        timestamp = str(int(time.time() * 1000))
+        output_path = os.path.join(DOWNLOAD_DIR, f"compressed_url_{timestamp}.mp4")
+        
+        await status_msg.edit_text(
+            f"⚙️ **Comprimiendo...**\n\n"
+            f"Calidad: **{QUALITY_PRESETS[quality]['name']}**\n"
+            f"Esto puede tomar un tiempo..."
+        )
+        
+        # Comprimir
+        last_update = [0]
+        
+        async def compress_progress(current_frame, total_frames, current_time):
+            if total_frames > 0:
+                percentage = current_frame / total_frames
+                if percentage - last_update[0] >= 0.02 or current_frame >= total_frames:
+                    bar = await create_progress_bar(current_frame, total_frames, "⚙️", "")
+                    try:
+                        await status_msg.edit_text(
+                            f"⚙️ **Comprimiendo a {QUALITY_PRESETS[quality]['name']}**\n\n"
+                            f"{bar}\n"
+                            f"Tiempo: {current_time}s"
+                        )
+                        last_update[0] = percentage
+                    except:
+                        pass
+        
+        result = await compressor.compress_video(
+            input_path,
+            output_path,
+            quality=quality,
+            progress_callback=compress_progress
+        )
+        
+        if not result['success']:
+            await status_msg.edit_text(f"❌ Error: {result['error']}")
+            return
+        
+        input_size = os.path.getsize(input_path)
+        output_size = os.path.getsize(output_path)
+        reduction = ((input_size - output_size) / input_size) * 100
+        
+        # Enviar video
+        await status_msg.edit_text(f"📤 Enviando video comprimido...")
+        
+        with open(output_path, 'rb') as video_file:
+            await client.send_document(
+                user_id,
+                video_file,
+                caption=(
+                    f"✅ **Video comprimido**\n\n"
+                    f"📊 **Estadísticas:**\n"
+                    f"Tamaño original: {format_bytes(input_size)}\n"
+                    f"Tamaño comprimido: {format_bytes(output_size)}\n"
+                    f"Reducción: {reduction:.1f}%\n\n"
+                    f"✨ Comprimido por @Compresor_minimisador_bot"
+                )
+            )
+        
+        await status_msg.edit_text("✅ ¡Video enviado correctamente!")
+        
+    except Exception as e:
+        await status_msg.edit_text(f"❌ Error: {str(e)}")
+        print(f"Error en process_url_video: {e}")
+    finally:
+        await cleanup_file(input_path)
+        if output_path:
+            await cleanup_file(output_path)
 
 async def process_video(client, message: Message, quality='360p'):
     user_id = message.from_user.id
