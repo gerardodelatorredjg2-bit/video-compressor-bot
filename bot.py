@@ -163,13 +163,14 @@ async def handle_url_download(client, message: Message):
         await message.reply_text("⚠️ Por favor, envía una URL válida que comience con http:// o https://")
         return
     
-    # Validar que tenga extensión de video
+    # Validar que tenga extensión de video (ignorar query strings)
     video_extensions = ['.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv', '.m4v', '.webm']
-    if not any(url.lower().endswith(ext) for ext in video_extensions):
+    url_path = url.split('?')[0].lower()  # Ignorar query strings
+    if not any(url_path.endswith(ext) for ext in video_extensions):
         await message.reply_text(
             "⚠️ **URL no válida**\n\n"
             "La URL debe apuntar a un archivo de video directo.\n"
-            "Formatos soportados: MP4, AVI, MOV, MKV, FLV, WMV\n\n"
+            "Formatos soportados: MP4, AVI, MOV, MKV, FLV, WMV, WEBM\n\n"
             "Ejemplo: `https://ejemplo.com/video.mp4`"
         )
         return
@@ -206,8 +207,8 @@ async def handle_url_download(client, message: Message):
             return
         
         size = os.path.getsize(input_path)
-        if size < 1000:
-            await status_msg.edit_text("❌ **Error**: El archivo descargado es muy pequeño")
+        if size < 100000:  # 100 KB mínimo
+            await status_msg.edit_text("❌ **Error**: El archivo descargado es muy pequeño (mínimo 100KB)")
             await cleanup_file(input_path)
             return
         
@@ -526,6 +527,7 @@ async def process_url_video(client, status_msg, quality, input_path, user_id):
             input_path,
             output_path,
             quality=quality,
+            user_id=user_id,
             progress_callback=compress_progress
         )
         
