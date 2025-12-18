@@ -163,6 +163,18 @@ async def handle_url_download(client, message: Message):
         await message.reply_text("⚠️ Por favor, envía una URL válida que comience con http:// o https://")
         return
     
+    # Validar que NO sea de YouTube, TikTok, etc (servicios que requieren autenticación)
+    if any(domain in url.lower() for domain in ['youtube.com', 'youtu.be', 'tiktok.com', 'instagram.com', 'facebook.com', 'twitter.com', 'twitch.tv']):
+        await message.reply_text(
+            "⚠️ **Servicio no soportado**\n\n"
+            "No puedo descargar de YouTube, TikTok, Instagram, etc.\n\n"
+            "**Alternativa:**\n"
+            "1. Descarga el video en tu dispositivo\n"
+            "2. Envíamelo directamente como archivo\n"
+            "3. O da una URL directa de descarga (ej: `https://ejemplo.com/video.mp4`)"
+        )
+        return
+    
     # Validar que tenga extensión de video (ignorar query strings)
     video_extensions = ['.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv', '.m4v', '.webm']
     url_path = url.split('?')[0].lower()  # Ignorar query strings
@@ -170,8 +182,10 @@ async def handle_url_download(client, message: Message):
         await message.reply_text(
             "⚠️ **URL no válida**\n\n"
             "La URL debe apuntar a un archivo de video directo.\n"
-            "Formatos soportados: MP4, AVI, MOV, MKV, FLV, WMV, WEBM\n\n"
-            "Ejemplo: `https://ejemplo.com/video.mp4`"
+            "Soporto: MP4, AVI, MOV, MKV, FLV, WMV, WEBM\n\n"
+            "❌ NO soporto: YouTube, TikTok, Instagram, etc\n\n"
+            "**Ejemplo válido:**\n"
+            "`https://ejemplo.com/video.mp4`"
         )
         return
     
