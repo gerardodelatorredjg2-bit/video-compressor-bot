@@ -600,7 +600,9 @@ async def main():
             await asyncio.Event().wait()
     except Exception as e:
         print(f"❌ Error: {e}")
+    finally:
+        await web_runner.cleanup()
 
 if __name__ == "__main__":
     print("🚀 Starting bot services...")
-    app.run()
+    asyncio.run(main())
